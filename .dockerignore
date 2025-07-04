@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+examples/
+
+# Development files
+.env*
+.air.toml
+.vscode/
+.idea/
+
+# Test files
+*_test.go
+testdata/
+
+# Build artifacts
+bin/
+*.exe
+*.test
+coverage.out
+coverage.html
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't copy other Dockerfiles)
+Dockerfile*
+docker-compose*
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Development tools
+Makefile
+*.sh
+*.ps1

@@ -1,0 +1,68 @@
+# Alternative security-hardened Dockerfile using Alpine
+# Build stage - Use specific version
+FROM golang:1.21.5-alpine3.19 AS builder
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+WORKDIR /app
+
+# Install build dependencies and apply security updates
+RUN apk add --no-cache git ca-certificates tzdata && \
+    apk upgrade --no-cache && \
+    update-ca-certificates
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download and verify dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Build with security hardening flags
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -a -installsuffix cgo \
+    -ldflags='-w -s -extldflags "-static"' \
+    -trimpath \
+    -o main ./cmd/api
+
+# Final stage - Use specific Alpine version
+FROM alpine:3.19.0
+
+# Install security updates and minimal runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata && \
+    apk upgrade --no-cache && \
+    update-ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+# Create app directory with proper permissions
+RUN mkdir -p /app && \
+    chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder --chown=appuser:appgroup /app/main .
+
+# Copy migrations
+COPY --from=builder --chown=appuser:appgroup /app/migrations ./migrations
+
+# Expose port
+EXPOSE 8080
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ./main --health-check || exit 1
+
+# Use ENTRYPOINT for better signal handling
+ENTRYPOINT ["./main"]
