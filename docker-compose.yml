@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/maylng?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - JWT_SECRET=dev-jwt-secret
+      - API_KEY_HASH_SALT=dev-salt
+      - ENVIRONMENT=development
+      - GIN_MODE=debug
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+      - /app/vendor
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: maylng
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
