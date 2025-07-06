@@ -1,0 +1,38 @@
+# Build stage - Use specific version instead of latest
+FROM golang:1.21.5-alpine3.19 AS builder
+
+# Create non-root user for build
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+WORKDIR /app
+
+# Install build dependencies and security updates
+RUN apk add --no-cache git && \
+    apk upgrade --no-cache
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Build the worker application with security flags
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -a -installsuffix cgo \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o worker ./cmd/worker
+
+# Final stage - Use specific distroless image for better security
+FROM gcr.io/distroless/static-debian11:nonroot
+
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder --chown=nonroot:nonroot /app/worker .
+
+# Run the worker binary
+ENTRYPOINT ["/app/worker"]

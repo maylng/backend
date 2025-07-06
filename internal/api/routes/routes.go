@@ -15,7 +15,7 @@ import (
 func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient *redis.Client, emailService *email.Service) {
 	// Initialize services
 	accountService := services.NewAccountService(db, cfg.APIKeyHashSalt)
-	emailAddressService := services.NewEmailAddressService(db)
+	emailAddressService := services.NewEmailAddressService(db, cfg)
 	emailSvc := services.NewEmailService(db, emailService)
 
 	// Initialize handlers

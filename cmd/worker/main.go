@@ -84,6 +84,7 @@ func main() {
 
 	// Start worker loops
 	go worker.processScheduledEmails(ctx)
+	go worker.processQueuedEmails(ctx)
 	go worker.cleanupExpiredEmails(ctx)
 
 	// Wait for shutdown
@@ -224,6 +225,83 @@ func (w *Worker) sendScheduledEmail(sentEmail *models.SentEmail, fromEmailAddres
 	)
 	if updateErr != nil {
 		log.Printf("Failed to update email status for %s: %v", sentEmail.ID, updateErr)
+	}
+}
+
+func (w *Worker) processQueuedEmails(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Second) // Check more frequently for queued emails
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			w.processQueuedEmailsBatch()
+		}
+	}
+}
+
+func (w *Worker) processQueuedEmailsBatch() {
+	// Get queued emails that are ready to send
+	query := `
+		SELECT id, account_id, from_email_id, to_recipients, cc_recipients, bcc_recipients,
+			   subject, text_content, html_content, attachments, headers, thread_id, metadata
+		FROM sent_emails 
+		WHERE status = 'queued'
+		LIMIT 100
+	`
+
+	rows, err := w.db.Query(query)
+	if err != nil {
+		log.Printf("Failed to query queued emails: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var sentEmail models.SentEmail
+		var toRecipientsJSON, ccRecipientsJSON, bccRecipientsJSON []byte
+
+		err := rows.Scan(
+			&sentEmail.ID,
+			&sentEmail.AccountID,
+			&sentEmail.FromEmailID,
+			&toRecipientsJSON,
+			&ccRecipientsJSON,
+			&bccRecipientsJSON,
+			&sentEmail.Subject,
+			&sentEmail.TextContent,
+			&sentEmail.HTMLContent,
+			&sentEmail.Attachments,
+			&sentEmail.Headers,
+			&sentEmail.ThreadID,
+			&sentEmail.Metadata,
+		)
+		if err != nil {
+			log.Printf("Failed to scan queued email: %v", err)
+			continue
+		}
+
+		// Parse JSON recipients
+		json.Unmarshal(toRecipientsJSON, &sentEmail.ToRecipients)
+		json.Unmarshal(ccRecipientsJSON, &sentEmail.CcRecipients)
+		json.Unmarshal(bccRecipientsJSON, &sentEmail.BccRecipients)
+
+		// Get from email address
+		var fromEmailAddress string
+		err = w.db.QueryRow(
+			"SELECT email FROM email_addresses WHERE id = $1",
+			sentEmail.FromEmailID,
+		).Scan(&fromEmailAddress)
+
+		if err != nil {
+			log.Printf("Failed to get from email address for email %s: %v", sentEmail.ID, err)
+			continue
+		}
+
+		log.Printf("Processing queued email %s from %s", sentEmail.ID, fromEmailAddress)
+		w.sendScheduledEmail(&sentEmail, fromEmailAddress)
 	}
 }
 

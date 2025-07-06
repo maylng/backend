@@ -16,6 +16,7 @@ type Config struct {
 	LogLevel         string
 	Port             string
 	MaxEmailsPerHour int
+	DefaultDomain    string
 }
 
 func Load() *Config {
@@ -30,6 +31,7 @@ func Load() *Config {
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
 		Port:             getEnv("PORT", "8080"),
 		MaxEmailsPerHour: getEnvAsInt("MAX_EMAILS_PER_HOUR", 100),
+		DefaultDomain:    getEnv("DEFAULT_DOMAIN", "mayl.ng"),
 	}
 }
 

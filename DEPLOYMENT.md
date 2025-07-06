@@ -11,65 +11,87 @@
 
 ## 📦 Quick Start
 
-### 1. Environment Setup
+### 🚀 One-Click Production Deployment
+
+```bash
+# Windows
+./deploy.bat
+
+# Linux/Mac
+chmod +x deploy.sh
+./deploy.sh
+```
+
+This will automatically:
+
+- ✅ Build the secure Docker image
+- ✅ Set up PostgreSQL + Redis
+- ✅ Run database migrations  
+- ✅ Start API server + background worker
+- ✅ Configure Nginx reverse proxy
+- ✅ Set up health checks
+
+### 🧪 Test Your Deployment
+
+```bash
+# Run API tests
+chmod +x test-api.sh
+./test-api.sh
+```
+
+### 📝 Manual Setup (Alternative)
+
+#### 1. Environment Setup
 
 ```bash
 # Copy environment template
-cp .env.example .env
+cp .env.production .env
 
-# Edit with your values
+# Edit with your values (REQUIRED: SENDGRID_API_KEY)
 SENDGRID_API_KEY=your_sendgrid_key
-DATABASE_URL=postgres://user:pass@localhost:5432/maylng
-REDIS_URL=redis://localhost:6379
+POSTGRES_PASSWORD=your_secure_password
+REDIS_PASSWORD=your_redis_password
 ```
 
-### 2. Database Setup
+#### 2. Start Services
 
 ```bash
-# Run migrations
-go run cmd/migrate/main.go
+# Start all services
+docker-compose -f docker-compose.prod.yml up -d
 
-# Or with Docker
-docker run --rm -e DATABASE_URL="$DATABASE_URL" maylng/backend:secure migrate
+# Check status
+docker-compose -f docker-compose.prod.yml ps
 ```
 
 ### 3. Secure Docker Deployment
 
-#### Production (Recommended)
+Your production environment is now running at:
+
+- **API**: <http://localhost:8080>
+- **Health Check**: <http://localhost:8080/health>  
+- **Database**: PostgreSQL on port 5432
+- **Cache**: Redis on port 6379
+- **Proxy**: Nginx on port 80
+
+#### 🔧 Management Commands
 
 ```bash
-# Build secure image
+# View all service logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# View specific service logs
+docker-compose -f docker-compose.prod.yml logs -f api
+docker-compose -f docker-compose.prod.yml logs -f worker
+
+# Restart services
+docker-compose -f docker-compose.prod.yml restart
+
+# Stop all services
+docker-compose -f docker-compose.prod.yml down
+
+# Update and redeploy
 docker build -t maylng/backend:secure .
-
-# Run API server
-docker run -d \
-  --name maylng-api \
-  -p 8080:8080 \
-  -e DATABASE_URL="$DATABASE_URL" \
-  -e REDIS_URL="$REDIS_URL" \
-  -e SENDGRID_API_KEY="$SENDGRID_API_KEY" \
-  --health-cmd="wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1" \
-  --health-interval=30s \
-  --health-timeout=5s \
-  --health-retries=3 \
-  maylng/backend:secure
-
-# Run background worker
-docker run -d \
-  --name maylng-worker \
-  -e DATABASE_URL="$DATABASE_URL" \
-  -e REDIS_URL="$REDIS_URL" \
-  -e SENDGRID_API_KEY="$SENDGRID_API_KEY" \
-  maylng/backend:secure worker
-```
-
-#### Alternative (Alpine)
-
-```bash
-# Build Alpine version
-docker build -f Dockerfile.alpine -t maylng/backend:alpine .
-
-# Use same run commands as above, but with :alpine tag
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ## 🔍 Security Verification

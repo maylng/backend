@@ -1,3 +1,4 @@
+.env.**
 .env
 *.log
 tmp/
@@ -11,3 +12,4 @@ vendor/
 *.pprof
 .DS_Store
 Thumbs.db
+important.txt

@@ -7,15 +7,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/maylng/backend/internal/config"
 	"github.com/maylng/backend/internal/models"
 )
 
 type EmailAddressService struct {
-	db *sql.DB
+	db     *sql.DB
+	config *config.Config
 }
 
-func NewEmailAddressService(db *sql.DB) *EmailAddressService {
-	return &EmailAddressService{db: db}
+func NewEmailAddressService(db *sql.DB, config *config.Config) *EmailAddressService {
+	return &EmailAddressService{
+		db:     db,
+		config: config,
+	}
 }
 
 func (s *EmailAddressService) CreateEmailAddress(accountID uuid.UUID, req *models.CreateEmailAddressRequest) (*models.EmailAddressResponse, error) {
@@ -248,8 +253,8 @@ func (s *EmailAddressService) countEmailAddresses(accountID uuid.UUID) (int, err
 }
 
 func (s *EmailAddressService) generateEmailAddress(req *models.CreateEmailAddressRequest) (email, prefix, domain string) {
-	// Use provided domain or default
-	domain = "maylng.dev" // Default domain
+	// Use provided domain or default from config
+	domain = s.config.DefaultDomain
 	if req.Domain != "" {
 		domain = req.Domain
 	}
