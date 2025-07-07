@@ -13,3 +13,4 @@ vendor/
 .DS_Store
 Thumbs.db
 important.txt
+locals/
