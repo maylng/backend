@@ -12,7 +12,7 @@ The Maylng API allows you to:
 - Manage account settings and rate limits
 - Schedule emails for future delivery
 
-**Base URL**: `https://api.mayl.ng`  
+**Base URL**: `https://api.mayl.ng:8080`  
 **Current Version**: `v1`  
 **Protocol**: HTTPS  
 **Format**: JSON  
@@ -548,7 +548,7 @@ Authorization: Bearer your_api_key
 #!/bin/bash
 
 # 1. Create account
-ACCOUNT_RESPONSE=$(curl -s -X POST https://api.mayl.ng/v1/accounts \
+ACCOUNT_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"plan": "free"}')
 
@@ -556,7 +556,7 @@ API_KEY=$(echo $ACCOUNT_RESPONSE | jq -r '.api_key')
 echo "API Key: $API_KEY"
 
 # 2. Create email address
-EMAIL_RESPONSE=$(curl -s -X POST https://api.mayl.ng/v1/email-addresses \
+EMAIL_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/email-addresses \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"type": "temporary", "prefix": "demo"}')
@@ -566,7 +566,7 @@ EMAIL_ADDRESS=$(echo $EMAIL_RESPONSE | jq -r '.email')
 echo "Email Address: $EMAIL_ADDRESS"
 
 # 3. Send email
-SEND_RESPONSE=$(curl -s -X POST https://api.mayl.ng/v1/emails/send \
+SEND_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/emails/send \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
@@ -580,14 +580,14 @@ EMAIL_SEND_ID=$(echo $SEND_RESPONSE | jq -r '.id')
 echo "Email sent with ID: $EMAIL_SEND_ID"
 
 # 4. Check email status
-curl -s -X GET "https://api.mayl.ng/v1/emails/$EMAIL_SEND_ID/status" \
+curl -s -X GET "https://api.mayl.ng:8080/v1/emails/$EMAIL_SEND_ID/status" \
   -H "Authorization: Bearer $API_KEY" | jq '.'
 ```
 
 ### 2. JavaScript/Node.js Example
 
 ```javascript
-const API_BASE = 'https://api.mayl.ng/v1';
+const API_BASE = 'https://api.mayl.ng:8080/v1';
 
 class MaylngAPI {
   constructor(apiKey) {
@@ -670,7 +670,7 @@ import json
 class MaylngAPI:
     def __init__(self, api_key):
         self.api_key = api_key
-        self.base_url = 'https://api.mayl.ng/v1'
+        self.base_url = 'https://api.mayl.ng:8080/v1'
         self.headers = {
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {api_key}'
