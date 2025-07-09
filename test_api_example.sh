@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Maylng API Test Script
-API_BASE="https://api.mayl.ng"
+API_BASE="https://api.mayl.ng:8080"
 
 echo "🚀 Testing Maylng API at $API_BASE"
 echo ""
