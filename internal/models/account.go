@@ -29,3 +29,7 @@ type AccountResponse struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 	APIKey             string    `json:"api_key,omitempty"` // Only returned on creation
 }
+
+type UpdateAccountRequest struct {
+	Plan *string `json:"plan" validate:"omitempty,oneof=free pro enterprise"`
+}

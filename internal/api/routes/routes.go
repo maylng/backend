@@ -43,6 +43,7 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	{
 		// Account management
 		protected.GET("/account", accountHandler.GetAccount)
+		protected.POST("/account/api-key", accountHandler.GenerateNewAPIKey)
 
 		// Email address management
 		protected.POST("/email-addresses", emailAddressHandler.CreateEmailAddress)
