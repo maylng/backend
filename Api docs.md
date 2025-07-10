@@ -128,6 +128,74 @@ Authorization: Bearer your_api_key
 }
 ```
 
+#### Update Account
+
+```http
+PATCH /v1/account
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "plan": "pro"  // Optional: "free", "pro", "enterprise"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "plan": "pro",
+  "email_limit_per_month": 50000,
+  "email_address_limit": 50,
+  "created_at": "2025-07-06T10:00:00Z",
+  "updated_at": "2025-07-06T10:00:00Z"
+}
+```
+
+#### Delete Account
+
+```http
+DELETE /v1/account
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:** `204 No Content`
+
+#### Generate New API Key
+
+```http
+POST /v1/account/api-key
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:**
+
+```json
+{
+  "api_key": "maylng_new_api_key_here"
+}
+```
+
 ---
 
 ### Email Address Management
