@@ -58,8 +58,140 @@ else
     echo "Response: $EMAIL_RESPONSE"
 fi
 
-# Test 4: Send Email (this will fail without SendGrid, but tests authentication)
-echo "4️⃣  Testing Email Send Authentication..."
+# Test 4: Update Account
+echo "4️⃣  Testing Account Update..."
+UPDATE_RESPONSE=$(curl -s -X PATCH "$API_BASE/v1/account" 
+    -H "Content-Type: application/json" 
+    -H "Authorization: Bearer $API_KEY" 
+    -d '{
+        "plan": "pro"
+    }')
+
+if echo "$UPDATE_RESPONSE" | grep -q '"plan":"pro"'; then
+    echo "✅ Account update passed"
+else
+    echo "❌ Account update failed"
+    echo "Response: $UPDATE_RESPONSE"
+    exit 1
+fi
+
+# Test 5: Generate New API Key
+echo "5️⃣  Testing New API Key Generation..."
+NEW_API_KEY_RESPONSE=$(curl -s -X POST "$API_BASE/v1/account/api-key" 
+    -H "Authorization: Bearer $API_KEY")
+
+if echo "$NEW_API_KEY_RESPONSE" | grep -q '"api_key"'; then
+    echo "✅ New API key generation passed"
+    OLD_API_KEY=$API_KEY
+    API_KEY=$(echo "$NEW_API_KEY_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+    echo "   New API Key: ${API_KEY:0:20}..."
+else
+    echo "❌ New API key generation failed"
+    echo "Response: $NEW_API_KEY_RESPONSE"
+    exit 1
+}
+
+# Test 4: Update Account
+echo "4️⃣  Testing Account Update..."
+UPDATE_RESPONSE=$(curl -s -X PATCH "$API_BASE/v1/account" 
+    -H "Content-Type: application/json" 
+    -H "Authorization: Bearer $API_KEY" 
+    -d '{
+        "plan": "pro"
+    }')
+
+if echo "$UPDATE_RESPONSE" | grep -q '"plan":"pro"'; then
+    echo "✅ Account update passed"
+else
+    echo "❌ Account update failed"
+    echo "Response: $UPDATE_RESPONSE"
+    exit 1
+fi
+
+# Test 5: Generate New API Key
+echo "5️⃣  Testing New API Key Generation..."
+NEW_API_KEY_RESPONSE=$(curl -s -X POST "$API_BASE/v1/account/api-key" 
+    -H "Authorization: Bearer $API_KEY")
+
+if echo "$NEW_API_KEY_RESPONSE" | grep -q '"api_key"'; then
+    echo "✅ New API key generation passed"
+    OLD_API_KEY=$API_KEY
+    API_KEY=$(echo "$NEW_API_KEY_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+    echo "   New API Key: ${API_KEY:0:20}..."
+else
+    echo "❌ New API key generation failed"
+    echo "Response: $NEW_API_KEY_RESPONSE"
+    exit 1
+fi
+
+# Test 4: Update Account
+echo "4️⃣  Testing Account Update..."
+UPDATE_RESPONSE=$(curl -s -X PATCH "$API_BASE/v1/account" 
+    -H "Content-Type: application/json" 
+    -H "Authorization: Bearer $API_KEY" 
+    -d '{
+        "plan": "pro"
+    }')
+
+if echo "$UPDATE_RESPONSE" | grep -q '"plan":"pro"'; then
+    echo "✅ Account update passed"
+else
+    echo "❌ Account update failed"
+    echo "Response: $UPDATE_RESPONSE"
+    exit 1
+fi
+
+# Test 5: Generate New API Key
+echo "5️⃣  Testing New API Key Generation..."
+NEW_API_KEY_RESPONSE=$(curl -s -X POST "$API_BASE/v1/account/api-key" 
+    -H "Authorization: Bearer $API_KEY")
+
+if echo "$NEW_API_KEY_RESPONSE" | grep -q '"api_key"'; then
+    echo "✅ New API key generation passed"
+    OLD_API_KEY=$API_KEY
+    API_KEY=$(echo "$NEW_API_KEY_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+    echo "   New API Key: ${API_KEY:0:20}..."
+else
+    echo "❌ New API key generation failed"
+    echo "Response: $NEW_API_KEY_RESPONSE"
+    exit 1
+fi
+
+# Test 4: Update Account
+echo "4️⃣  Testing Account Update..."
+UPDATE_RESPONSE=$(curl -s -X PATCH "$API_BASE/v1/account" 
+    -H "Content-Type: application/json" 
+    -H "Authorization: Bearer $API_KEY" 
+    -d '{
+        "plan": "pro"
+    }')
+
+if echo "$UPDATE_RESPONSE" | grep -q '"plan":"pro"'; then
+    echo "✅ Account update passed"
+else
+    echo "❌ Account update failed"
+    echo "Response: $UPDATE_RESPONSE"
+    exit 1
+fi
+
+# Test 5: Generate New API Key
+echo "5️⃣  Testing New API Key Generation..."
+NEW_API_KEY_RESPONSE=$(curl -s -X POST "$API_BASE/v1/account/api-key" 
+    -H "Authorization: Bearer $API_KEY")
+
+if echo "$NEW_API_KEY_RESPONSE" | grep -q '"api_key"'; then
+    echo "✅ New API key generation passed"
+    OLD_API_KEY=$API_KEY
+    API_KEY=$(echo "$NEW_API_KEY_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+    echo "   New API Key: ${API_KEY:0:20}..."
+else
+    echo "❌ New API key generation failed"
+    echo "Response: $NEW_API_KEY_RESPONSE"
+    exit 1
+fi
+
+# Test 6: Send Email (this will fail without SendGrid, but tests authentication with new key)
+echo "6️⃣  Testing Email Send Authentication with New API Key..."
 SEND_RESPONSE=$(curl -s -X POST "$API_BASE/v1/emails/send" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
@@ -72,10 +204,23 @@ SEND_RESPONSE=$(curl -s -X POST "$API_BASE/v1/emails/send" \
 
 # Check if we get a proper error response (not 401 unauthorized)
 if echo "$SEND_RESPONSE" | grep -q -E '"error"|"message"' && ! echo "$SEND_RESPONSE" | grep -q "unauthorized"; then
-    echo "✅ Email send authentication passed (SendGrid validation expected)"
+    echo "✅ Email send authentication with new API key passed (SendGrid validation expected)"
 else
-    echo "⚠️  Email send test - check SendGrid configuration"
+    echo "⚠️  Email send test with new API key - check SendGrid configuration"
     echo "Response: $SEND_RESPONSE"
+fi
+
+# Test 7: Delete Account
+echo "7️⃣  Testing Account Deletion..."
+DELETE_RESPONSE=$(curl -s -X DELETE "$API_BASE/v1/account" 
+    -H "Authorization: Bearer $API_KEY" -w "%{\http_code}" -o /dev/null)
+
+if [ "$DELETE_RESPONSE" -eq 204 ]; then
+    echo "✅ Account deletion passed"
+else
+    echo "❌ Account deletion failed"
+    echo "HTTP Status Code: $DELETE_RESPONSE"
+    exit 1
 fi
 
 echo ""
@@ -83,11 +228,47 @@ echo "🎉 API Testing Complete!"
 echo ""
 echo "📋 Summary:"
 echo "   ✅ Health check working"
-echo "   ✅ Account creation working" 
+echo "   ✅ Account creation working"
+echo "   ✅ Account update working"
+echo "   ✅ New API key generation working"
 echo "   ✅ Authentication working"
 echo "   ✅ Email endpoints accessible"
+echo "   ✅ Account deletion working"
 echo ""
 echo "🔧 Your API is ready for SDK integration!"
 echo "   Base URL: $API_BASE"
-echo "   Test API Key: ${API_KEY:0:20}..."
+echo "   Test API Key (old): ${OLD_API_KEY:0:20}..."
+echo "   Test API Key (new): ${API_KEY:0:20}..."
+echo ""
+
+
+# Test 7: Delete Account
+echo "7️⃣  Testing Account Deletion..."
+DELETE_RESPONSE=$(curl -s -X DELETE "$API_BASE/v1/account" 
+    -H "Authorization: Bearer $API_KEY" -w "%{\http_code}" -o /dev/null)
+
+if [ "$DELETE_RESPONSE" -eq 204 ]; then
+    echo "✅ Account deletion passed"
+else
+    echo "❌ Account deletion failed"
+    echo "HTTP Status Code: $DELETE_RESPONSE"
+    exit 1
+fi
+
+echo ""
+echo "🎉 API Testing Complete!"
+echo ""
+echo "📋 Summary:"
+echo "   ✅ Health check working"
+echo "   ✅ Account creation working"
+echo "   ✅ Account update working"
+echo "   ✅ New API key generation working"
+echo "   ✅ Authentication working"
+echo "   ✅ Email endpoints accessible"
+echo "   ✅ Account deletion working"
+echo ""
+echo "🔧 Your API is ready for SDK integration!"
+echo "   Base URL: $API_BASE"
+echo "   Test API Key (old): ${OLD_API_KEY:0:20}..."
+echo "   Test API Key (new): ${API_KEY:0:20}..."
 echo ""
