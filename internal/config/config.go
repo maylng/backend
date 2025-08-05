@@ -10,6 +10,7 @@ type Config struct {
 	RedisURL         string
 	GinMode          string
 	SendGridAPIKey   string
+	AWSRegion        string
 	JWTSecret        string
 	APIKeyHashSalt   string
 	Environment      string
@@ -17,6 +18,7 @@ type Config struct {
 	Port             string
 	MaxEmailsPerHour int
 	DefaultDomain    string
+	EmailProvider    string // "sendgrid" or "ses"
 }
 
 func Load() *Config {
@@ -25,6 +27,7 @@ func Load() *Config {
 		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
 		GinMode:          getEnv("GIN_MODE", "debug"),
 		SendGridAPIKey:   getEnv("SENDGRID_API_KEY", ""),
+		AWSRegion:        getEnv("AWS_REGION", "us-east-1"),
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
 		APIKeyHashSalt:   getEnv("API_KEY_HASH_SALT", "your-salt"),
 		Environment:      getEnv("ENVIRONMENT", "development"),
@@ -32,6 +35,7 @@ func Load() *Config {
 		Port:             getEnv("PORT", "8080"),
 		MaxEmailsPerHour: getEnvAsInt("MAX_EMAILS_PER_HOUR", 100),
 		DefaultDomain:    getEnv("DEFAULT_DOMAIN", "mayl.ng"),
+		EmailProvider:    getEnv("EMAIL_PROVIDER", "sendgrid"), // Default to sendgrid for backward compatibility
 	}
 }
 

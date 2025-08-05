@@ -21,13 +21,15 @@ type CreateAccountRequest struct {
 }
 
 type AccountResponse struct {
-	ID                 uuid.UUID `json:"id"`
-	Plan               string    `json:"plan"`
-	EmailLimitPerMonth int       `json:"email_limit_per_month"`
-	EmailAddressLimit  int       `json:"email_address_limit"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	APIKey             string    `json:"api_key,omitempty"` // Only returned on creation
+	ID                   uuid.UUID `json:"id"`
+	Plan                 string    `json:"plan"`
+	EmailLimitPerMonth   int       `json:"email_limit_per_month"`
+	EmailAddressLimit    int       `json:"email_address_limit"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	APIKey               string    `json:"api_key,omitempty"` // Only returned on creation
+	CustomDomainsCount   int       `json:"custom_domains_count,omitempty"`
+	VerifiedDomainsCount int       `json:"verified_domains_count,omitempty"`
 }
 
 type UpdateAccountRequest struct {

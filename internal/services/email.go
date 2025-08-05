@@ -26,16 +26,34 @@ func NewEmailService(db *sql.DB, emailService *email.Service) *EmailService {
 func (s *EmailService) SendEmail(accountID uuid.UUID, req *models.SendEmailRequest) (*models.EmailResponse, error) {
 	// Validate that the from_email_id belongs to the account
 	var fromEmailAddress string
+	var customDomainID *uuid.UUID
 	err := s.db.QueryRow(
-		"SELECT email FROM email_addresses WHERE id = $1 AND account_id = $2 AND status = 'active'",
+		"SELECT email, custom_domain_id FROM email_addresses WHERE id = $1 AND account_id = $2 AND status = 'active'",
 		req.FromEmailID, accountID,
-	).Scan(&fromEmailAddress)
+	).Scan(&fromEmailAddress, &customDomainID)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("from email address not found or not active")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate from email address: %w", err)
+	}
+
+	// If the email address uses a custom domain, verify that the domain is verified
+	if customDomainID != nil {
+		var domainStatus string
+		err = s.db.QueryRow(
+			"SELECT status FROM custom_domains WHERE id = $1 AND account_id = $2",
+			customDomainID, accountID,
+		).Scan(&domainStatus)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate custom domain: %w", err)
+		}
+
+		if domainStatus != string(models.CustomDomainStatusVerified) {
+			return nil, fmt.Errorf("custom domain must be verified before sending emails (current status: %s)", domainStatus)
+		}
 	}
 
 	// Check rate limits (simplified for MVP)

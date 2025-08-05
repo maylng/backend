@@ -47,8 +47,19 @@ chmod +x test-api.sh
 # Copy environment template
 cp .env.production .env
 
-# Edit with your values (REQUIRED: SENDGRID_API_KEY)
+# Edit with your values (EMAIL PROVIDER REQUIRED)
+# For SendGrid (legacy):
 SENDGRID_API_KEY=your_sendgrid_key
+EMAIL_PROVIDER=sendgrid
+
+# For AWS SES (recommended):
+EMAIL_PROVIDER=ses
+AWS_REGION=us-east-1
+# AWS credentials can be provided via:
+# - AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables
+# - IAM roles (if running on EC2)
+# - AWS credential files
+
 POSTGRES_PASSWORD=your_secure_password
 REDIS_PASSWORD=your_redis_password
 ```

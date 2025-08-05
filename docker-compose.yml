@@ -9,6 +9,10 @@ services:
       - DATABASE_URL=postgres://user:password@postgres:5432/maylng?sslmode=disable
       - REDIS_URL=redis://redis:6379
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-sendgrid}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - JWT_SECRET=dev-jwt-secret
       - API_KEY_HASH_SALT=dev-salt
       - ENVIRONMENT=development

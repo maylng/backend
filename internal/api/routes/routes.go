@@ -17,12 +17,29 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	accountService := services.NewAccountService(db, cfg.APIKeyHashSalt)
 	emailAddressService := services.NewEmailAddressService(db, cfg)
 	emailSvc := services.NewEmailService(db, emailService)
+	customDomainService := services.NewCustomDomainService(db)
+
+	// Initialize SES verification service (only if using SES)
+	var sesVerificationService *services.SESVerificationService
+	if cfg.EmailProvider == "ses" && cfg.AWSRegion != "" {
+		var err error
+		sesVerificationService, err = services.NewSESVerificationService(cfg.AWSRegion, customDomainService)
+		if err != nil {
+			// Log error but don't fail startup
+			// Custom domains will work without SES verification
+			sesVerificationService = nil
+		}
+	}
+
+	// Initialize DNS validation service
+	dnsValidationService := services.NewDNSValidationService()
 
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
 	accountHandler := handlers.NewAccountHandler(accountService)
 	emailAddressHandler := handlers.NewEmailAddressHandler(emailAddressService)
 	emailHandler := handlers.NewEmailHandler(emailSvc)
+	customDomainHandler := handlers.NewCustomDomainHandler(customDomainService, sesVerificationService, dnsValidationService)
 
 	// Middleware
 	router.Use(middleware.CORSMiddleware())
@@ -57,6 +74,15 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 		protected.GET("/emails", emailHandler.GetEmails)
 		protected.GET("/emails/:id", emailHandler.GetEmail)
 		protected.GET("/emails/:id/status", emailHandler.GetEmailStatus)
+
+		// Custom domain management
+		protected.POST("/custom-domains", customDomainHandler.CreateCustomDomain)
+		protected.GET("/custom-domains", customDomainHandler.GetCustomDomains)
+		protected.GET("/custom-domains/:id", customDomainHandler.GetCustomDomain)
+		protected.DELETE("/custom-domains/:id", customDomainHandler.DeleteCustomDomain)
+		protected.POST("/custom-domains/:id/verify", customDomainHandler.VerifyCustomDomain)
+		protected.GET("/custom-domains/:id/status", customDomainHandler.CheckVerificationStatus)
+		protected.GET("/custom-domains/:id/dns", customDomainHandler.ValidateDomainDNS)
 	}
 
 	// TODO: Webhook routes for email providers

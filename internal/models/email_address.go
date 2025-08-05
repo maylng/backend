@@ -18,9 +18,10 @@ const (
 type EmailAddressStatus string
 
 const (
-	EmailAddressStatusActive   EmailAddressStatus = "active"
-	EmailAddressStatusExpired  EmailAddressStatus = "expired"
-	EmailAddressStatusDisabled EmailAddressStatus = "disabled"
+	EmailAddressStatusActive              EmailAddressStatus = "active"
+	EmailAddressStatusExpired             EmailAddressStatus = "expired"
+	EmailAddressStatusDisabled            EmailAddressStatus = "disabled"
+	EmailAddressStatusVerificationPending EmailAddressStatus = "verification_pending"
 )
 
 type Metadata map[string]interface{}
@@ -42,42 +43,46 @@ func (m *Metadata) Scan(value interface{}) error {
 }
 
 type EmailAddress struct {
-	ID        uuid.UUID          `json:"id" db:"id"`
-	AccountID uuid.UUID          `json:"account_id" db:"account_id"`
-	Email     string             `json:"email" db:"email"`
-	Type      EmailAddressType   `json:"type" db:"type"`
-	Prefix    string             `json:"prefix" db:"prefix"`
-	Domain    string             `json:"domain" db:"domain"`
-	Status    EmailAddressStatus `json:"status" db:"status"`
-	ExpiresAt *time.Time         `json:"expires_at" db:"expires_at"`
-	Metadata  Metadata           `json:"metadata" db:"metadata"`
-	CreatedAt time.Time          `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at" db:"updated_at"`
+	ID             uuid.UUID          `json:"id" db:"id"`
+	AccountID      uuid.UUID          `json:"account_id" db:"account_id"`
+	Email          string             `json:"email" db:"email"`
+	Type           EmailAddressType   `json:"type" db:"type"`
+	Prefix         string             `json:"prefix" db:"prefix"`
+	Domain         string             `json:"domain" db:"domain"`
+	Status         EmailAddressStatus `json:"status" db:"status"`
+	CustomDomainID *uuid.UUID         `json:"custom_domain_id,omitempty" db:"custom_domain_id"`
+	ExpiresAt      *time.Time         `json:"expires_at" db:"expires_at"`
+	Metadata       Metadata           `json:"metadata" db:"metadata"`
+	CreatedAt      time.Time          `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at" db:"updated_at"`
 }
 
 type CreateEmailAddressRequest struct {
-	Type      EmailAddressType `json:"type" validate:"required,oneof=temporary persistent"`
-	Prefix    string           `json:"prefix" validate:"omitempty,min=1,max=100"`
-	Domain    string           `json:"domain" validate:"omitempty,hostname"`
-	ExpiresAt *time.Time       `json:"expires_at"`
-	Metadata  Metadata         `json:"metadata"`
+	Type           EmailAddressType `json:"type" validate:"required,oneof=temporary persistent"`
+	Prefix         string           `json:"prefix" validate:"omitempty,min=1,max=100"`
+	Domain         string           `json:"domain" validate:"omitempty,hostname"`
+	CustomDomainID *uuid.UUID       `json:"custom_domain_id"`
+	ExpiresAt      *time.Time       `json:"expires_at"`
+	Metadata       Metadata         `json:"metadata"`
 }
 
 type UpdateEmailAddressRequest struct {
-	Status    *EmailAddressStatus `json:"status" validate:"omitempty,oneof=active expired disabled"`
-	ExpiresAt *time.Time          `json:"expires_at"`
-	Metadata  Metadata            `json:"metadata"`
+	Status         *EmailAddressStatus `json:"status" validate:"omitempty,oneof=active expired disabled verification_pending"`
+	CustomDomainID *uuid.UUID          `json:"custom_domain_id"`
+	ExpiresAt      *time.Time          `json:"expires_at"`
+	Metadata       Metadata            `json:"metadata"`
 }
 
 type EmailAddressResponse struct {
-	ID        uuid.UUID          `json:"id"`
-	Email     string             `json:"email"`
-	Type      EmailAddressType   `json:"type"`
-	Prefix    string             `json:"prefix"`
-	Domain    string             `json:"domain"`
-	Status    EmailAddressStatus `json:"status"`
-	ExpiresAt *time.Time         `json:"expires_at"`
-	Metadata  Metadata           `json:"metadata"`
-	CreatedAt time.Time          `json:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at"`
+	ID             uuid.UUID          `json:"id"`
+	Email          string             `json:"email"`
+	Type           EmailAddressType   `json:"type"`
+	Prefix         string             `json:"prefix"`
+	Domain         string             `json:"domain"`
+	Status         EmailAddressStatus `json:"status"`
+	CustomDomainID *uuid.UUID         `json:"custom_domain_id,omitempty"`
+	ExpiresAt      *time.Time         `json:"expires_at"`
+	Metadata       Metadata           `json:"metadata"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }
