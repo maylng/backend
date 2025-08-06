@@ -11,6 +11,7 @@ The Maylng API allows you to:
 - Track email delivery status
 - Manage account settings and rate limits
 - Schedule emails for future delivery
+- Add and verify custom domains for BYOD (Bring Your Own Domain)
 
 **Base URL**: `https://api.mayl.ng:8080`  
 **Current Version**: `v1`  
@@ -351,6 +352,215 @@ Authorization: Bearer your_api_key
 
 ---
 
+### Custom Domain Management
+
+#### Create Custom Domain
+
+```http
+POST /v1/custom-domains
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "domain": "yourdomain.com"  // Required: domain name to add for BYOD
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "59556ccf-7fab-4728-8e32-0bb5f3469133",
+  "domain": "yourdomain.com",
+  "status": "pending",
+  "dkim_records": [
+    {
+      "name": "_domainkey.yourdomain.com",
+      "type": "CNAME",
+      "value": "abc123._domainkey.amazonses.com"
+    }
+  ],
+  "created_at": "2025-08-06T10:00:00Z",
+  "updated_at": "2025-08-06T10:00:00Z"
+}
+```
+
+#### List Custom Domains
+
+```http
+GET /v1/custom-domains
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:**
+
+```json
+{
+  "custom_domains": [
+    {
+      "id": "59556ccf-7fab-4728-8e32-0bb5f3469133",
+      "domain": "yourdomain.com",
+      "status": "verified",
+      "dkim_records": [
+        {
+          "name": "_domainkey.yourdomain.com",
+          "type": "CNAME",
+          "value": "abc123._domainkey.amazonses.com"
+        }
+      ],
+      "created_at": "2025-08-06T10:00:00Z",
+      "updated_at": "2025-08-06T10:15:00Z"
+    }
+  ]
+}
+```
+
+#### Get Custom Domain
+
+```http
+GET /v1/custom-domains/{id}
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:**
+
+```json
+{
+  "id": "59556ccf-7fab-4728-8e32-0bb5f3469133",
+  "domain": "yourdomain.com",
+  "status": "verified",
+  "dkim_records": [
+    {
+      "name": "_domainkey.yourdomain.com",
+      "type": "CNAME",
+      "value": "abc123._domainkey.amazonses.com"
+    }
+  ],
+  "created_at": "2025-08-06T10:00:00Z",
+  "updated_at": "2025-08-06T10:15:00Z"
+}
+```
+
+#### Validate DNS Records
+
+```http
+GET /v1/custom-domains/{id}/dns
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:**
+
+```json
+{
+  "domain": "yourdomain.com",
+  "all_records_present": true,
+  "mx_record": {
+    "expected": "10 inbound-smtp.us-east-1.amazonaws.com",
+    "found": ["10 inbound-smtp.us-east-1.amazonaws.com"],
+    "valid": true
+  },
+  "dkim_records": [
+    {
+      "name": "_domainkey.yourdomain.com",
+      "expected": "abc123._domainkey.amazonses.com",
+      "found": ["abc123._domainkey.amazonses.com"],
+      "valid": true
+    }
+  ]
+}
+```
+
+#### Get Verification Status
+
+```http
+GET /v1/custom-domains/{id}/status
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:**
+
+```json
+{
+  "domain": "yourdomain.com",
+  "ses_verification": {
+    "status": "Success",
+    "verified": true
+  },
+  "dkim_verification": {
+    "status": "Success",
+    "verified": true
+  },
+  "status": "verified"
+}
+```
+
+#### Manually Trigger Verification
+
+```http
+POST /v1/custom-domains/{id}/verify
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:**
+
+```json
+{
+  "message": "Verification triggered successfully"
+}
+```
+
+**Note:** If the domain is already verified, this will return an `AlreadyExistsException` error, which is expected behavior.
+
+#### Delete Custom Domain
+
+```http
+DELETE /v1/custom-domains/{id}
+```
+
+**Headers:**
+
+```http
+Authorization: Bearer your_api_key
+```
+
+**Response:** `204 No Content`
+
+---
+
 ### Email Operations
 
 #### Send Email
@@ -547,6 +757,17 @@ Authorization: Bearer your_api_key
 
 ---
 
+## 📋 Custom Domain Status Values
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Domain has been added but not yet verified |
+| `verifying` | Domain verification is in progress |
+| `verified` | Domain has been successfully verified and is ready for use |
+| `failed` | Domain verification failed (check DNS records) |
+
+---
+
 ## 🚨 Error Handling
 
 ### Error Response Format
@@ -603,6 +824,22 @@ Authorization: Bearer your_api_key
 ```json
 {
   "error": "At least one of text_content or html_content must be provided"
+}
+```
+
+#### Custom Domain Not Found
+
+```json
+{
+  "error": "custom domain not found"
+}
+```
+
+#### DNS Records Not Present
+
+```json
+{
+  "error": "Required DNS records are not present for domain verification"
 }
 ```
 
@@ -729,6 +966,43 @@ async function example() {
 example().catch(console.error);
 ```
 
+### 4. Custom Domain (BYOD) Example
+
+```bash
+#!/bin/bash
+
+# Assuming you already have an API key
+API_KEY="your_api_key_here"
+
+# 1. Add custom domain
+DOMAIN_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/custom-domains \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "yourdomain.com"}')
+
+DOMAIN_ID=$(echo $DOMAIN_RESPONSE | jq -r '.id')
+echo "Domain ID: $DOMAIN_ID"
+
+# Display DKIM records to add to DNS
+echo "DKIM records to add to your DNS:"
+echo $DOMAIN_RESPONSE | jq -r '.dkim_records[]'
+
+# 2. Check DNS validation
+echo "Checking DNS records..."
+curl -s -X GET "https://api.mayl.ng:8080/v1/custom-domains/$DOMAIN_ID/dns" \
+  -H "Authorization: Bearer $API_KEY" | jq '.'
+
+# 3. Check verification status
+echo "Checking verification status..."
+curl -s -X GET "https://api.mayl.ng:8080/v1/custom-domains/$DOMAIN_ID/status" \
+  -H "Authorization: Bearer $API_KEY" | jq '.'
+
+# 4. Manually trigger verification (if needed)
+echo "Triggering verification..."
+curl -s -X POST "https://api.mayl.ng:8080/v1/custom-domains/$DOMAIN_ID/verify" \
+  -H "Authorization: Bearer $API_KEY" | jq '.'
+```
+
 ### 3. Python Example
 
 ```python
@@ -780,6 +1054,21 @@ class MaylngAPI:
         )
         return response.json()
 
+    def create_custom_domain(self, domain):
+        response = requests.post(
+            f'{self.base_url}/custom-domains',
+            headers=self.headers,
+            json={'domain': domain}
+        )
+        return response.json()
+
+    def get_domain_status(self, domain_id):
+        response = requests.get(
+            f'{self.base_url}/custom-domains/{domain_id}/status',
+            headers=self.headers
+        )
+        return response.json()
+
 # Usage
 api = MaylngAPI('your_api_key_here')
 
@@ -799,6 +1088,15 @@ print(f"Email sent: {email['id']}")
 # Check status
 status = api.get_email_status(email['id'])
 print(f"Email status: {status['status']}")
+
+# Add custom domain
+domain = api.create_custom_domain('yourdomain.com')
+print(f"Domain added: {domain['domain']}")
+print(f"DKIM records: {domain['dkim_records']}")
+
+# Check domain status
+domain_status = api.get_domain_status(domain['id'])
+print(f"Domain verification status: {domain_status['status']}")
 ```
 
 ---
@@ -864,6 +1162,13 @@ Add custom email headers for tracking or client-specific requirements:
 
 ## 🔄 Changelog
 
+### v1.1.0 (2025-08-06)
+
+- Added Custom Domain Management (BYOD - Bring Your Own Domain)
+- Domain verification with AWS SES integration
+- DNS validation for MX and DKIM records
+- Custom domain status tracking and verification
+
 ### v1.0.0 (2025-07-06)
 
 - Initial API release
@@ -876,4 +1181,4 @@ Add custom email headers for tracking or client-specific requirements:
 
 ---
 
-## *Last updated: July 6, 2025*
+## *Last updated: August 6, 2025*

@@ -2,8 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Maylng API",
-    "version": "v1",
-    "description": "A powerful and scalable email API service for creating temporary and persistent email addresses with comprehensive email sending capabilities."
+    "version": "v1.1",
+    "description": "A powerful and scalable email API service for creating temporary and persistent email addresses with comprehensive email sending capabilities and custom domain management."
   },
   "servers": [
     {
@@ -337,6 +337,228 @@
         }
       }
     },
+    "/custom-domains": {
+      "post": {
+        "summary": "Create Custom Domain",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "domain": {
+                    "type": "string",
+                    "description": "Domain name to add for BYOD"
+                  }
+                },
+                "required": ["domain"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Custom Domain Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomDomain"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Custom Domains",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "custom_domains": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustomDomain"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/custom-domains/{id}": {
+      "get": {
+        "summary": "Get Custom Domain",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomDomain"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Custom Domain",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/custom-domains/{id}/dns": {
+      "get": {
+        "summary": "Validate DNS Records",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DNSValidation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/custom-domains/{id}/status": {
+      "get": {
+        "summary": "Get Verification Status",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/custom-domains/{id}/verify": {
+      "post": {
+        "summary": "Manually Trigger Verification",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/emails/send": {
       "post": {
         "summary": "Send Email",
@@ -596,6 +818,131 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CustomDomain": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "verifying", "verified", "failed"]
+          },
+          "dkim_records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DNSValidation": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "all_records_present": {
+            "type": "boolean"
+          },
+          "mx_record": {
+            "type": "object",
+            "properties": {
+              "expected": {
+                "type": "string"
+              },
+              "found": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "valid": {
+                "type": "boolean"
+              }
+            }
+          },
+          "dkim_records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "expected": {
+                  "type": "string"
+                },
+                "found": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "valid": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DomainStatus": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "ses_verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "verified": {
+                "type": "boolean"
+              }
+            }
+          },
+          "dkim_verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "verified": {
+                "type": "boolean"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "verifying", "verified", "failed"]
           }
         }
       },
