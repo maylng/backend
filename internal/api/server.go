@@ -25,12 +25,44 @@ func NewServer(cfg *config.Config, db *sql.DB, redisClient *redis.Client) *Serve
 
 	// Initialize email service
 	var emailService *email.Service
-	if cfg.SendGridAPIKey != "" {
-		sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
-		emailService = email.NewService(sendGridProvider, nil)
-	} else {
-		// For development, create a mock service
-		emailService = email.NewService(nil, nil)
+
+	switch cfg.EmailProvider {
+	case "ses":
+		// Use SES as primary provider
+		sesProvider, err := providers.NewSESProvider(cfg.AWSRegion)
+		if err != nil {
+			// If SES fails to initialize, fall back to SendGrid if available
+			if cfg.SendGridAPIKey != "" {
+				sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
+				emailService = email.NewService(sendGridProvider, nil)
+			} else {
+				emailService = email.NewService(nil, nil)
+			}
+		} else {
+			var fallbackProvider email.Provider
+			if cfg.SendGridAPIKey != "" {
+				fallbackProvider = providers.NewSendGridProvider(cfg.SendGridAPIKey)
+			}
+			emailService = email.NewService(sesProvider, fallbackProvider)
+		}
+	case "sendgrid":
+		// Use SendGrid as primary provider
+		if cfg.SendGridAPIKey != "" {
+			sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
+			emailService = email.NewService(sendGridProvider, nil)
+		} else {
+			// No SendGrid API key provided
+			emailService = email.NewService(nil, nil)
+		}
+	default:
+		// Backward compatibility - check for SendGrid first
+		if cfg.SendGridAPIKey != "" {
+			sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
+			emailService = email.NewService(sendGridProvider, nil)
+		} else {
+			// For development, create a service with no providers
+			emailService = email.NewService(nil, nil)
+		}
 	}
 
 	// Setup routes
