@@ -118,12 +118,19 @@ func (s *AccountService) GetAccount(accountID uuid.UUID) (*models.AccountRespons
 		return nil, fmt.Errorf("failed to get email addresses count: %w", err)
 	}
 
+	// Get TPS count
+	tpsCount, err := s.getTPSCount(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TPS count: %w", err)
+	}
+
 	return &models.AccountResponse{
 		ID:                  account.ID,
 		Plan:                account.Plan,
 		EmailLimitPerMonth:  account.EmailLimitPerMonth,
 		EmailAddressLimit:   account.EmailAddressLimit,
 		EmailAddressesCount: emailAddressesCount,
+		TPSCount:            tpsCount,
 		CreatedAt:           account.CreatedAt,
 		UpdatedAt:           account.UpdatedAt,
 	}, nil
@@ -172,12 +179,19 @@ func (s *AccountService) UpdateAccount(accountID uuid.UUID, req *models.UpdateAc
 		return nil, fmt.Errorf("failed to get email addresses count: %w", err)
 	}
 
+	// Get TPS count
+	tpsCount, err := s.getTPSCount(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TPS count: %w", err)
+	}
+
 	return &models.AccountResponse{
 		ID:                  account.ID,
 		Plan:                account.Plan,
 		EmailLimitPerMonth:  account.EmailLimitPerMonth,
 		EmailAddressLimit:   account.EmailAddressLimit,
 		EmailAddressesCount: emailAddressesCount,
+		TPSCount:            tpsCount,
 		CreatedAt:           account.CreatedAt,
 		UpdatedAt:           account.UpdatedAt,
 	}, nil
@@ -248,6 +262,24 @@ func (s *AccountService) getEmailAddressesCount(accountID uuid.UUID) (int, error
 	err := s.db.QueryRow(query, accountID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count email addresses: %w", err)
+	}
+
+	return count, nil
+}
+
+// getTPSCount returns the count of TPS integrations for a given account
+func (s *AccountService) getTPSCount(accountID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM tps t 
+		JOIN email_addresses e ON t.email_address_id = e.id 
+		WHERE e.account_id = $1
+	`
+
+	var count int
+	err := s.db.QueryRow(query, accountID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count TPS: %w", err)
 	}
 
 	return count, nil

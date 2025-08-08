@@ -29,6 +29,7 @@ type AccountResponse struct {
 	UpdatedAt            time.Time `json:"updated_at"`
 	APIKey               string    `json:"api_key,omitempty"` // Only returned on creation
 	EmailAddressesCount  int       `json:"email_addresses_count,omitempty"`
+	TPSCount             int       `json:"tps_count,omitempty"` // 3rd Party Software
 	CustomDomainsCount   int       `json:"custom_domains_count,omitempty"`
 	VerifiedDomainsCount int       `json:"verified_domains_count,omitempty"`
 }
