@@ -18,6 +18,7 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	emailAddressService := services.NewEmailAddressService(db, cfg)
 	emailSvc := services.NewEmailService(db, emailService)
 	customDomainService := services.NewCustomDomainService(db)
+	tpsService := services.NewTPSService(db, cfg.TPSEncryptionKey)
 
 	// Initialize SES verification service (only if using SES)
 	var sesVerificationService *services.SESVerificationService
@@ -40,6 +41,7 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	emailAddressHandler := handlers.NewEmailAddressHandler(emailAddressService)
 	emailHandler := handlers.NewEmailHandler(emailSvc)
 	customDomainHandler := handlers.NewCustomDomainHandler(customDomainService, sesVerificationService, dnsValidationService)
+	tpsHandler := handlers.NewTPSHandler(tpsService, emailAddressService, accountService)
 
 	// Middleware
 	router.Use(middleware.CORSMiddleware())
@@ -68,6 +70,13 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 		protected.GET("/email-addresses/:id", emailAddressHandler.GetEmailAddress)
 		protected.PATCH("/email-addresses/:id", emailAddressHandler.UpdateEmailAddress)
 		protected.DELETE("/email-addresses/:id", emailAddressHandler.DeleteEmailAddress)
+
+		// TPS (3rd Party Software) management
+		protected.POST("/email-addresses/:email_id/tps", tpsHandler.CreateTPS)
+		protected.GET("/email-addresses/:email_id/tps", tpsHandler.ListTPSByEmail)
+		protected.GET("/tps/:tps_id", tpsHandler.GetTPS)
+		protected.PATCH("/tps/:tps_id", tpsHandler.UpdateTPS)
+		protected.DELETE("/tps/:tps_id", tpsHandler.DeleteTPS)
 
 		// Email operations
 		protected.POST("/emails/send", emailHandler.SendEmail)

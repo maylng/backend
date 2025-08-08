@@ -19,6 +19,7 @@ type Config struct {
 	MaxEmailsPerHour int
 	DefaultDomain    string
 	EmailProvider    string // "sendgrid" or "ses"
+	TPSEncryptionKey string // For encrypting TPS API keys and passwords
 }
 
 func Load() *Config {
@@ -36,6 +37,7 @@ func Load() *Config {
 		MaxEmailsPerHour: getEnvAsInt("MAX_EMAILS_PER_HOUR", 100),
 		DefaultDomain:    getEnv("DEFAULT_DOMAIN", "mayl.ng"),
 		EmailProvider:    getEnv("EMAIL_PROVIDER", "sendgrid"), // Default to sendgrid for backward compatibility
+		TPSEncryptionKey: getEnv("TPS_ENCRYPTION_KEY", "default-key-change-in-production"),
 	}
 }
 
