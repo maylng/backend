@@ -43,6 +43,12 @@ func (s *EmailAddressService) CreateEmailAddress(accountID uuid.UUID, req *model
 	// Generate email address
 	email, prefix, domain := s.generateEmailAddress(req)
 
+	// Set default access type to agent if not specified
+	accessType := req.AccessType
+	if accessType == "" {
+		accessType = models.EmailAddressAccessTypeAgent
+	}
+
 	// Set expiration for temporary emails
 	var expiresAt *time.Time
 	if req.Type == models.EmailAddressTypeTemporary {
@@ -57,13 +63,13 @@ func (s *EmailAddressService) CreateEmailAddress(accountID uuid.UUID, req *model
 
 	// Insert email address
 	query := `
-		INSERT INTO email_addresses (account_id, email, type, prefix, domain, expires_at, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO email_addresses (account_id, email, type, access_type, prefix, domain, expires_at, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, status, created_at, updated_at
 	`
 
 	var emailAddr models.EmailAddress
-	err = s.db.QueryRow(query, accountID, email, req.Type, prefix, domain, expiresAt, req.Metadata).Scan(
+	err = s.db.QueryRow(query, accountID, email, req.Type, accessType, prefix, domain, expiresAt, req.Metadata).Scan(
 		&emailAddr.ID,
 		&emailAddr.Status,
 		&emailAddr.CreatedAt,
@@ -78,22 +84,23 @@ func (s *EmailAddressService) CreateEmailAddress(accountID uuid.UUID, req *model
 	}
 
 	return &models.EmailAddressResponse{
-		ID:        emailAddr.ID,
-		Email:     email,
-		Type:      req.Type,
-		Prefix:    prefix,
-		Domain:    domain,
-		Status:    emailAddr.Status,
-		ExpiresAt: expiresAt,
-		Metadata:  req.Metadata,
-		CreatedAt: emailAddr.CreatedAt,
-		UpdatedAt: emailAddr.UpdatedAt,
+		ID:         emailAddr.ID,
+		Email:      email,
+		Type:       req.Type,
+		AccessType: accessType,
+		Prefix:     prefix,
+		Domain:     domain,
+		Status:     emailAddr.Status,
+		ExpiresAt:  expiresAt,
+		Metadata:   req.Metadata,
+		CreatedAt:  emailAddr.CreatedAt,
+		UpdatedAt:  emailAddr.UpdatedAt,
 	}, nil
 }
 
 func (s *EmailAddressService) GetEmailAddresses(accountID uuid.UUID) ([]*models.EmailAddressResponse, error) {
 	query := `
-		SELECT id, email, type, prefix, domain, status, expires_at, metadata, created_at, updated_at
+		SELECT id, email, type, access_type, prefix, domain, status, expires_at, metadata, created_at, updated_at
 		FROM email_addresses 
 		WHERE account_id = $1 
 		ORDER BY created_at DESC
@@ -112,6 +119,7 @@ func (s *EmailAddressService) GetEmailAddresses(accountID uuid.UUID) ([]*models.
 			&addr.ID,
 			&addr.Email,
 			&addr.Type,
+			&addr.AccessType,
 			&addr.Prefix,
 			&addr.Domain,
 			&addr.Status,
@@ -125,16 +133,17 @@ func (s *EmailAddressService) GetEmailAddresses(accountID uuid.UUID) ([]*models.
 		}
 
 		emailAddresses = append(emailAddresses, &models.EmailAddressResponse{
-			ID:        addr.ID,
-			Email:     addr.Email,
-			Type:      addr.Type,
-			Prefix:    addr.Prefix,
-			Domain:    addr.Domain,
-			Status:    addr.Status,
-			ExpiresAt: addr.ExpiresAt,
-			Metadata:  addr.Metadata,
-			CreatedAt: addr.CreatedAt,
-			UpdatedAt: addr.UpdatedAt,
+			ID:         addr.ID,
+			Email:      addr.Email,
+			Type:       addr.Type,
+			AccessType: addr.AccessType,
+			Prefix:     addr.Prefix,
+			Domain:     addr.Domain,
+			Status:     addr.Status,
+			ExpiresAt:  addr.ExpiresAt,
+			Metadata:   addr.Metadata,
+			CreatedAt:  addr.CreatedAt,
+			UpdatedAt:  addr.UpdatedAt,
 		})
 	}
 
@@ -143,7 +152,7 @@ func (s *EmailAddressService) GetEmailAddresses(accountID uuid.UUID) ([]*models.
 
 func (s *EmailAddressService) GetEmailAddress(accountID, emailAddressID uuid.UUID) (*models.EmailAddressResponse, error) {
 	query := `
-		SELECT id, email, type, prefix, domain, status, expires_at, metadata, created_at, updated_at
+		SELECT id, email, type, access_type, prefix, domain, status, expires_at, metadata, created_at, updated_at
 		FROM email_addresses 
 		WHERE id = $1 AND account_id = $2
 	`
@@ -153,6 +162,7 @@ func (s *EmailAddressService) GetEmailAddress(accountID, emailAddressID uuid.UUI
 		&addr.ID,
 		&addr.Email,
 		&addr.Type,
+		&addr.AccessType,
 		&addr.Prefix,
 		&addr.Domain,
 		&addr.Status,
@@ -171,16 +181,17 @@ func (s *EmailAddressService) GetEmailAddress(accountID, emailAddressID uuid.UUI
 	}
 
 	return &models.EmailAddressResponse{
-		ID:        addr.ID,
-		Email:     addr.Email,
-		Type:      addr.Type,
-		Prefix:    addr.Prefix,
-		Domain:    addr.Domain,
-		Status:    addr.Status,
-		ExpiresAt: addr.ExpiresAt,
-		Metadata:  addr.Metadata,
-		CreatedAt: addr.CreatedAt,
-		UpdatedAt: addr.UpdatedAt,
+		ID:         addr.ID,
+		Email:      addr.Email,
+		Type:       addr.Type,
+		AccessType: addr.AccessType,
+		Prefix:     addr.Prefix,
+		Domain:     addr.Domain,
+		Status:     addr.Status,
+		ExpiresAt:  addr.ExpiresAt,
+		Metadata:   addr.Metadata,
+		CreatedAt:  addr.CreatedAt,
+		UpdatedAt:  addr.UpdatedAt,
 	}, nil
 }
 
@@ -193,6 +204,12 @@ func (s *EmailAddressService) UpdateEmailAddress(accountID, emailAddressID uuid.
 	if req.Status != nil {
 		setParts = append(setParts, fmt.Sprintf("status = $%d", argIndex))
 		args = append(args, *req.Status)
+		argIndex++
+	}
+
+	if req.AccessType != nil {
+		setParts = append(setParts, fmt.Sprintf("access_type = $%d", argIndex))
+		args = append(args, *req.AccessType)
 		argIndex++
 	}
 
