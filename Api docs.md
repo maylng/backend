@@ -98,6 +98,7 @@ POST /v1/accounts
   "plan": "free",
   "email_limit_per_month": 1000,
   "email_address_limit": 5,
+  "email_addresses_count": 2,
   "api_key": "maylng_1234567890abcdef...",
   "created_at": "2025-07-06T10:00:00Z",
   "updated_at": "2025-07-06T10:00:00Z"
@@ -124,6 +125,7 @@ Authorization: Bearer your_api_key
   "plan": "free",
   "email_limit_per_month": 1000,
   "email_address_limit": 5,
+  "email_addresses_count": 2,
   "created_at": "2025-07-06T10:00:00Z",
   "updated_at": "2025-07-06T10:00:00Z"
 }
@@ -158,6 +160,7 @@ Content-Type: application/json
   "plan": "pro",
   "email_limit_per_month": 50000,
   "email_address_limit": 50,
+  "email_addresses_count": 8,
   "created_at": "2025-07-06T10:00:00Z",
   "updated_at": "2025-07-06T10:00:00Z"
 }
@@ -860,6 +863,14 @@ ACCOUNT_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/accounts \
 API_KEY=$(echo $ACCOUNT_RESPONSE | jq -r '.api_key')
 echo "API Key: $API_KEY"
 
+# 1.1. Check account details and limits
+ACCOUNT_DETAILS=$(curl -s -X GET https://api.mayl.ng:8080/v1/account \
+  -H "Authorization: Bearer $API_KEY")
+
+EMAIL_COUNT=$(echo $ACCOUNT_DETAILS | jq -r '.email_addresses_count')
+EMAIL_LIMIT=$(echo $ACCOUNT_DETAILS | jq -r '.email_address_limit')
+echo "Email addresses: $EMAIL_COUNT/$EMAIL_LIMIT"
+
 # 2. Create email address
 EMAIL_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/email-addresses \
   -H "Authorization: Bearer $API_KEY" \
@@ -945,6 +956,11 @@ class MaylngAPI {
 const api = new MaylngAPI('your_api_key_here');
 
 async function example() {
+  // Get account details
+  const account = await api.request('GET', '/account');
+  console.log(`Account plan: ${account.plan}`);
+  console.log(`Email addresses: ${account.email_addresses_count}/${account.email_address_limit}`);
+
   // Create email address
   const emailAddress = await api.createEmailAddress('temporary', 'my-prefix');
   console.log('Created email:', emailAddress.email);
@@ -1030,6 +1046,13 @@ class MaylngAPI:
         )
         return response.json()
 
+    def get_account(self):
+        response = requests.get(
+            f'{self.base_url}/account',
+            headers=self.headers
+        )
+        return response.json()
+
     def send_email(self, from_email_id, to_recipients, subject, html_content, text_content=None):
         data = {
             'from_email_id': from_email_id,
@@ -1071,6 +1094,11 @@ class MaylngAPI:
 
 # Usage
 api = MaylngAPI('your_api_key_here')
+
+# Get account details
+account = api.get_account()
+print(f"Account plan: {account['plan']}")
+print(f"Email addresses: {account['email_addresses_count']}/{account['email_address_limit']}")
 
 # Create email address
 email_address = api.create_email_address('temporary', 'python-demo')

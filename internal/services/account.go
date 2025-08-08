@@ -112,13 +112,20 @@ func (s *AccountService) GetAccount(accountID uuid.UUID) (*models.AccountRespons
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 
+	// Get email addresses count
+	emailAddressesCount, err := s.getEmailAddressesCount(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get email addresses count: %w", err)
+	}
+
 	return &models.AccountResponse{
-		ID:                 account.ID,
-		Plan:               account.Plan,
-		EmailLimitPerMonth: account.EmailLimitPerMonth,
-		EmailAddressLimit:  account.EmailAddressLimit,
-		CreatedAt:          account.CreatedAt,
-		UpdatedAt:          account.UpdatedAt,
+		ID:                  account.ID,
+		Plan:                account.Plan,
+		EmailLimitPerMonth:  account.EmailLimitPerMonth,
+		EmailAddressLimit:   account.EmailAddressLimit,
+		EmailAddressesCount: emailAddressesCount,
+		CreatedAt:           account.CreatedAt,
+		UpdatedAt:           account.UpdatedAt,
 	}, nil
 }
 
@@ -159,13 +166,20 @@ func (s *AccountService) UpdateAccount(accountID uuid.UUID, req *models.UpdateAc
 		return nil, fmt.Errorf("failed to update account: %w", err)
 	}
 
+	// Get email addresses count
+	emailAddressesCount, err := s.getEmailAddressesCount(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get email addresses count: %w", err)
+	}
+
 	return &models.AccountResponse{
-		ID:                 account.ID,
-		Plan:               account.Plan,
-		EmailLimitPerMonth: account.EmailLimitPerMonth,
-		EmailAddressLimit:  account.EmailAddressLimit,
-		CreatedAt:          account.CreatedAt,
-		UpdatedAt:          account.UpdatedAt,
+		ID:                  account.ID,
+		Plan:                account.Plan,
+		EmailLimitPerMonth:  account.EmailLimitPerMonth,
+		EmailAddressLimit:   account.EmailAddressLimit,
+		EmailAddressesCount: emailAddressesCount,
+		CreatedAt:           account.CreatedAt,
+		UpdatedAt:           account.UpdatedAt,
 	}, nil
 }
 
@@ -220,4 +234,21 @@ func (s *AccountService) GenerateNewAPIKey(accountID uuid.UUID) (string, error) 
 	}
 
 	return newAPIKey, nil
+}
+
+// getEmailAddressesCount returns the count of email addresses for a given account
+func (s *AccountService) getEmailAddressesCount(accountID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM email_addresses 
+		WHERE account_id = $1 AND status != 'disabled'
+	`
+
+	var count int
+	err := s.db.QueryRow(query, accountID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count email addresses: %w", err)
+	}
+
+	return count, nil
 }

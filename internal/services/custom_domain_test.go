@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -78,6 +79,12 @@ func TestDNSRecord(t *testing.T) {
 		Value: "verification-token-here",
 		TTL:   300,
 	}
+
+	fmt.Printf("Record Type: %s\n", record.Type)
+	fmt.Printf("Record Name: %s\n", record.Name)
+	fmt.Printf("Record Value: %s\n", record.Value)
+	fmt.Printf("Record TTL: %d\n", record.TTL)
+
 
 	if record.Type != "TXT" {
 		t.Errorf("Expected record type 'TXT', got '%s'", record.Type)

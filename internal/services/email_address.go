@@ -248,7 +248,7 @@ func (s *EmailAddressService) DeleteEmailAddress(accountID, emailAddressID uuid.
 
 func (s *EmailAddressService) countEmailAddresses(accountID uuid.UUID) (int, error) {
 	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM email_addresses WHERE account_id = $1", accountID).Scan(&count)
+	err := s.db.QueryRow("SELECT COUNT(*) FROM email_addresses WHERE account_id = $1 AND status != 'disabled'", accountID).Scan(&count)
 	return count, err
 }
 

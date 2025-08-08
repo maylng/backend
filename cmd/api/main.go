@@ -14,6 +14,8 @@ import (
 	"github.com/maylng/backend/internal/database"
 )
 
+// TODO: Add robust testing for the entire API
+
 func main() {
 	// Check for health check flag
 	if len(os.Args) > 1 && os.Args[1] == "--health-check" {
