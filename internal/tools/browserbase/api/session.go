@@ -1,4 +1,4 @@
-package browserbase
+package api
 
 import (
 	"bytes"

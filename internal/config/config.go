@@ -20,6 +20,8 @@ type Config struct {
 	DefaultDomain    string
 	EmailProvider    string // "sendgrid" or "ses"
 	TPSEncryptionKey string // For encrypting TPS API keys and passwords
+	BROWSERBASE_API_KEY string
+	BROWSERBASE_PROJECT_ID string
 }
 
 func Load() *Config {
@@ -38,6 +40,8 @@ func Load() *Config {
 		DefaultDomain:    getEnv("DEFAULT_DOMAIN", "mayl.ng"),
 		EmailProvider:    getEnv("EMAIL_PROVIDER", "sendgrid"), // Default to sendgrid for backward compatibility
 		TPSEncryptionKey: getEnv("TPS_ENCRYPTION_KEY", "default-key-change-in-production"),
+		BROWSERBASE_API_KEY: getEnv("BROWSERBASE_API_KEY", "your_browserbase_api_key_here"),
+		BROWSERBASE_PROJECT_ID: getEnv("BROWSERBASE_PROJECT_ID", "your_browserbase_project_id_here"),
 	}
 }
 
