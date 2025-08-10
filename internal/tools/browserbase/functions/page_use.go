@@ -13,6 +13,7 @@ type BoundingBox struct {
 	Height float64 `json:"height"`
 }
 
+// TODO: Modify page user to not just accept target urls, but commands that perform specific page actions
 // PageUser starts a browserbase session and accepts arguments for using a specific page.
 func PageUser(target_url *string) {
 	_, browser, page, err := InitBrowserbaseSession()
