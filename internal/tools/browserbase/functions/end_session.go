@@ -20,7 +20,11 @@ func EndBrowserbaseSession(session *api.SessionResponse, browser playwright.Brow
 	}
 	// Stop Playwright
 	if pw != nil {
-		_ = pw.Stop()
+		err := pw.Stop()
+		
+		if err != nil {
+			return fmt.Errorf("failed to stop playwright: %w", err)
+		}
 	}
 
 	// Request session release from Browserbase
@@ -39,3 +43,4 @@ func EndBrowserbaseSession(session *api.SessionResponse, browser playwright.Brow
 
 	return nil
 }
+
