@@ -5,62 +5,88 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-// BoundingBox is the coordinates and the dimensions of a UI element.
-type BoundingBox struct {
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Width  float64 `json:"width"`
-	Height float64 `json:"height"`
+type PageUser struct {
+	Browser playwright.Browser
+	Page    playwright.Page
+
 }
 
-// TODO: Modify page user to not just accept target urls, but commands that perform specific page actions
-// PageUser starts a browserbase session and accepts arguments for using a specific page.
-func PageUser(target_url *string) {
+type AgentCommand struct {
+	Action    string  `json:"action"`
+	Selector  string  `json:"selector,omitempty"`
+	Text      string  `json:"text,omitempty"`
+	URL       string  `json:"url,omitempty"`
+	Direction string  `json:"direction,omitempty"`
+	Amount    float64 `json:"amount,omitempty"`
+	X         float64 `json:"x,omitempty"`
+	Y         float64 `json:"y,omitempty"`
+	Duration  float64 `json:"duration,omitempty"`
+}
+
+func NewPageUser() (*PageUser, error) {
 	_, browser, page, err := InitBrowserbaseSession()
 	if err != nil {
-		fmt.Printf("failed to create browserbase session and page instance: %v\n", err)
-		return
+		return nil, err
 	}
-	defer func() {
-		// Clean up resources
-		if page != nil {
-			_ = page.Close()
-		}
-		if browser != nil {
-			_ = browser.Close()
-		}
-		// Optionally: EndBrowserbaseSession(session, browser, page, pw) if you have a session cleanup function
-	}()
+	return &PageUser{Browser: browser, Page: page}, nil
+}
 
-	if target_url != nil {
-		res, err := page.Goto(*target_url, playwright.PageGotoOptions{
-			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+func (pu *PageUser) ExecuteCommand(cmd AgentCommand) error {
+	switch cmd.Action {
+	case "navigate":
+		_, err := pu.Page.Goto(cmd.URL)
+		return err
+	case "type":
+		locator := pu.Page.Locator(cmd.Selector)
+		return locator.Fill(cmd.Text)
+		// err := locator.Type("agent@example.com", playwright.LocatorTypeOptions{
+		// 	Delay: playwright.Float(100), // milliseconds between keystrokes
+		// })
+	case "scroll":
+		_, err := pu.Page.Evaluate(fmt.Sprintf(`window.scrollBy(0, %f)`, cmd.Amount))
+		return err
+	case "moveMouse":
+		return pu.Page.Mouse().Move(cmd.X, cmd.Y, playwright.MouseMoveOptions{
+			Steps: intPtr(int(cmd.Duration / 10)),
 		})
+	case "click":
+		locator := pu.Page.Locator(cmd.Selector)
+		box, err := locator.BoundingBox()
 		if err != nil {
-			fmt.Printf("failed to navigate to target URL %s: %v\n", *target_url, err)
-			return
+			return fmt.Errorf("failed to get bounding box for selector %s: %w", cmd.Selector, err)
 		}
-
-		if res != nil {
-			headers := res.Headers()
-			// TODO: Store Headers for later use
-			fmt.Println("Response headers:", headers)
-
-			// To get cookies as seen by the browser:
-			cookies, err := page.Context().Cookies()
-			if err == nil {
-				fmt.Println("Cookies:", cookies)
-			} else {
-				// TODO: Store Cookies for later use
-				fmt.Printf("failed to get cookies: %v\n", err)
-			}
-			// html, err := page.Content() // Page html string
-			// page_screenshot, err := page.Screenshot() // Maybe for later use IDK
-			// mouse := page.Mouse() // Mouse control
-			// keyboard := page.Keyboard() // Keyboard control
-
+		mouseX := box.X + box.Width/2
+		mouseY := box.Y + box.Height/2
+		if cmd.X != 0 {
+			mouseX = cmd.X
 		}
-	} else {
-		fmt.Println("No target URL provided, using default page.")
+		if cmd.Y != 0 {
+			mouseY = cmd.Y
+		}
+		if err := pu.Page.Mouse().Move(mouseX, mouseY, playwright.MouseMoveOptions{
+			Steps: intPtr(int(cmd.Duration / 10)),
+		}); err != nil {
+			return fmt.Errorf("failed to move mouse: %w", err)
+		}
+		if err := pu.Page.Mouse().Click(mouseX, mouseY); err != nil {
+			return fmt.Errorf("failed to click: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown action: %s", cmd.Action)
 	}
+}
+
+// Cleanup closes the page and browser.
+func (pu *PageUser) Cleanup() {
+	if pu.Page != nil {
+		_ = pu.Page.Close()
+	}
+	if pu.Browser != nil {
+		_ = pu.Browser.Close()
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }
