@@ -21,14 +21,19 @@ func NewCustomDomainService(db *sql.DB) *CustomDomainService {
 }
 
 // CreateCustomDomain creates a new custom domain for an account
-func (s *CustomDomainService) CreateCustomDomain(accountID uuid.UUID, domain string) (*models.CustomDomain, error) {
+func (s *CustomDomainService) CreateCustomDomain(accountID uuid.UUID, domain, verificationProvider string) (*models.CustomDomain, error) {
+	if verificationProvider == "" {
+		verificationProvider = "ses" // Default to SES for backward compatibility
+	}
+
 	customDomain := &models.CustomDomain{
-		ID:        uuid.New(),
-		AccountID: accountID,
-		Domain:    domain,
-		Status:    models.CustomDomainStatusPending,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:                   uuid.New(),
+		AccountID:            accountID,
+		Domain:               domain,
+		Status:               models.CustomDomainStatusPending,
+		VerificationProvider: verificationProvider,
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
 	}
 
 	dnsRecordsJSON, _ := json.Marshal([]models.DNSRecord{})
@@ -37,8 +42,8 @@ func (s *CustomDomainService) CreateCustomDomain(accountID uuid.UUID, domain str
 
 	query := `
 		INSERT INTO custom_domains (
-			id, account_id, domain, status, dns_records, dkim_tokens, metadata, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			id, account_id, domain, status, verification_provider, dns_records, dkim_tokens, metadata, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := s.db.Exec(query,
@@ -46,6 +51,7 @@ func (s *CustomDomainService) CreateCustomDomain(accountID uuid.UUID, domain str
 		customDomain.AccountID,
 		customDomain.Domain,
 		customDomain.Status,
+		customDomain.VerificationProvider,
 		dnsRecordsJSON,
 		dkimTokensJSON,
 		metadataJSON,
@@ -66,7 +72,8 @@ func (s *CustomDomainService) GetCustomDomainByID(id uuid.UUID) (*models.CustomD
 	var dnsRecordsJSON, dkimTokensJSON, metadataJSON []byte
 
 	query := `
-		SELECT id, account_id, domain, status, verification_token, dkim_tokens, dns_records,
+		SELECT id, account_id, domain, status, verification_provider, provider_verification_status, provider_domain_id,
+			   verification_token, dkim_tokens, dns_records,
 			   ses_verification_status, ses_dkim_verification_status, verification_attempted_at,
 			   verified_at, failure_reason, metadata, created_at, updated_at
 		FROM custom_domains WHERE id = $1
@@ -77,6 +84,9 @@ func (s *CustomDomainService) GetCustomDomainByID(id uuid.UUID) (*models.CustomD
 		&customDomain.AccountID,
 		&customDomain.Domain,
 		&customDomain.Status,
+		&customDomain.VerificationProvider,
+		&customDomain.ProviderVerificationStatus,
+		&customDomain.ProviderDomainID,
 		&customDomain.VerificationToken,
 		&dkimTokensJSON,
 		&dnsRecordsJSON,
@@ -114,7 +124,8 @@ func (s *CustomDomainService) GetCustomDomainByID(id uuid.UUID) (*models.CustomD
 // GetCustomDomainsByAccountID retrieves all custom domains for an account
 func (s *CustomDomainService) GetCustomDomainsByAccountID(accountID uuid.UUID) ([]*models.CustomDomain, error) {
 	query := `
-		SELECT id, account_id, domain, status, verification_token, dkim_tokens, dns_records,
+		SELECT id, account_id, domain, status, verification_provider, provider_verification_status, provider_domain_id,
+			   verification_token, dkim_tokens, dns_records,
 			   ses_verification_status, ses_dkim_verification_status, verification_attempted_at,
 			   verified_at, failure_reason, metadata, created_at, updated_at
 		FROM custom_domains WHERE account_id = $1 ORDER BY created_at DESC
@@ -136,6 +147,9 @@ func (s *CustomDomainService) GetCustomDomainsByAccountID(accountID uuid.UUID) (
 			&customDomain.AccountID,
 			&customDomain.Domain,
 			&customDomain.Status,
+			&customDomain.VerificationProvider,
+			&customDomain.ProviderVerificationStatus,
+			&customDomain.ProviderDomainID,
 			&customDomain.VerificationToken,
 			&dkimTokensJSON,
 			&dnsRecordsJSON,
@@ -179,21 +193,27 @@ func (s *CustomDomainService) UpdateCustomDomain(customDomain *models.CustomDoma
 	query := `
 		UPDATE custom_domains SET
 			status = $1,
-			verification_token = $2,
-			dkim_tokens = $3,
-			dns_records = $4,
-			ses_verification_status = $5,
-			ses_dkim_verification_status = $6,
-			verification_attempted_at = $7,
-			verified_at = $8,
-			failure_reason = $9,
-			metadata = $10,
+			verification_provider = $2,
+			provider_verification_status = $3,
+			provider_domain_id = $4,
+			verification_token = $5,
+			dkim_tokens = $6,
+			dns_records = $7,
+			ses_verification_status = $8,
+			ses_dkim_verification_status = $9,
+			verification_attempted_at = $10,
+			verified_at = $11,
+			failure_reason = $12,
+			metadata = $13,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $11
+		WHERE id = $14
 	`
 
 	_, err := s.db.Exec(query,
 		customDomain.Status,
+		customDomain.VerificationProvider,
+		customDomain.ProviderVerificationStatus,
+		customDomain.ProviderDomainID,
 		customDomain.VerificationToken,
 		dkimTokensJSON,
 		dnsRecordsJSON,
@@ -239,7 +259,8 @@ func (s *CustomDomainService) GetCustomDomainByDomain(domain string) (*models.Cu
 	var dnsRecordsJSON, dkimTokensJSON, metadataJSON []byte
 
 	query := `
-		SELECT id, account_id, domain, status, verification_token, dkim_tokens, dns_records,
+		SELECT id, account_id, domain, status, verification_provider, provider_verification_status, provider_domain_id,
+			   verification_token, dkim_tokens, dns_records,
 			   ses_verification_status, ses_dkim_verification_status, verification_attempted_at,
 			   verified_at, failure_reason, metadata, created_at, updated_at
 		FROM custom_domains WHERE domain = $1
@@ -250,6 +271,9 @@ func (s *CustomDomainService) GetCustomDomainByDomain(domain string) (*models.Cu
 		&customDomain.AccountID,
 		&customDomain.Domain,
 		&customDomain.Status,
+		&customDomain.VerificationProvider,
+		&customDomain.ProviderVerificationStatus,
+		&customDomain.ProviderDomainID,
 		&customDomain.VerificationToken,
 		&dkimTokensJSON,
 		&dnsRecordsJSON,

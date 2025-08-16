@@ -1,0 +1,9 @@
+More refined examples:
+
+The click action will automatically move the mouse for a specific duration to the selected UI, then click it
+{
+    action: "click",
+    selector: "#login",
+    x: 250,
+    y: 400
+}

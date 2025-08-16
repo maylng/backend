@@ -146,24 +146,24 @@ func (s *SESVerificationService) CheckVerificationStatus(customDomain *models.Cu
 
 	// Use tagged switch for SES verification status
 	switch resp.VerificationStatus {
-		case types.VerificationStatusSuccess:
-			if resp.DkimAttributes != nil && resp.DkimAttributes.Status == types.DkimStatusSuccess {
-				customDomain.Status = models.CustomDomainStatusVerified
-				if customDomain.VerifiedAt == nil {
-					now := time.Now()
-					customDomain.VerifiedAt = &now
-				}
-			} else {
-				// Domain verified but DKIM pending
-				customDomain.Status = models.CustomDomainStatusPending
+	case types.VerificationStatusSuccess:
+		if resp.DkimAttributes != nil && resp.DkimAttributes.Status == types.DkimStatusSuccess {
+			customDomain.Status = models.CustomDomainStatusVerified
+			if customDomain.VerifiedAt == nil {
+				now := time.Now()
+				customDomain.VerifiedAt = &now
 			}
-		case types.VerificationStatusFailed:
-			customDomain.Status = models.CustomDomainStatusFailed
-			customDomain.FailureReason = aws.String("Domain verification failed in SES")
-		case types.VerificationStatusPending, types.VerificationStatusTemporaryFailure, types.VerificationStatusNotStarted:
+		} else {
+			// Domain verified but DKIM pending
 			customDomain.Status = models.CustomDomainStatusPending
-		default:
-			customDomain.Status = models.CustomDomainStatusPending
+		}
+	case types.VerificationStatusFailed:
+		customDomain.Status = models.CustomDomainStatusFailed
+		customDomain.FailureReason = aws.String("Domain verification failed in SES")
+	case types.VerificationStatusPending, types.VerificationStatusTemporaryFailure, types.VerificationStatusNotStarted:
+		customDomain.Status = models.CustomDomainStatusPending
+	default:
+		customDomain.Status = models.CustomDomainStatusPending
 	}
 
 	// Log status change
@@ -217,4 +217,9 @@ func (s *SESVerificationService) RetryVerification(customDomain *models.CustomDo
 
 	// Re-initiate verification
 	return s.InitiateDomainVerification(customDomain)
+}
+
+// GetProviderType returns the provider type
+func (s *SESVerificationService) GetProviderType() string {
+	return "ses"
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -11,35 +12,55 @@ import (
 )
 
 type CreateCustomDomainRequest struct {
-	Domain string `json:"domain" binding:"required" validate:"required,fqdn"`
+	Domain               string `json:"domain" binding:"required" validate:"required,fqdn"`
+	VerificationProvider string `json:"verification_provider,omitempty" validate:"omitempty,oneof=ses resend"`
 }
 
 type CustomDomainResponse struct {
-	ID                        uuid.UUID                 `json:"id"`
-	Domain                    string                    `json:"domain"`
-	Status                    string                    `json:"status"`
-	DNSRecords                []models.DNSRecord        `json:"dns_records"`
-	SESVerificationStatus     *string                   `json:"ses_verification_status,omitempty"`
-	SESDKIMVerificationStatus *string                   `json:"ses_dkim_verification_status,omitempty"`
-	FailureReason             *string                   `json:"failure_reason,omitempty"`
-	VerificationAttemptedAt   *string                   `json:"verification_attempted_at,omitempty"`
-	VerifiedAt                *string                   `json:"verified_at,omitempty"`
-	CreatedAt                 string                    `json:"created_at"`
-	UpdatedAt                 string                    `json:"updated_at"`
-	DNSStatus                 *services.DomainDNSStatus `json:"dns_status,omitempty"`
+	ID                         uuid.UUID                 `json:"id"`
+	Domain                     string                    `json:"domain"`
+	Status                     string                    `json:"status"`
+	VerificationProvider       string                    `json:"verification_provider"`
+	ProviderVerificationStatus *string                   `json:"provider_verification_status,omitempty"`
+	DNSRecords                 []models.DNSRecord        `json:"dns_records"`
+	SESVerificationStatus      *string                   `json:"ses_verification_status,omitempty"`
+	SESDKIMVerificationStatus  *string                   `json:"ses_dkim_verification_status,omitempty"`
+	FailureReason              *string                   `json:"failure_reason,omitempty"`
+	VerificationAttemptedAt    *string                   `json:"verification_attempted_at,omitempty"`
+	VerifiedAt                 *string                   `json:"verified_at,omitempty"`
+	CreatedAt                  string                    `json:"created_at"`
+	UpdatedAt                  string                    `json:"updated_at"`
+	DNSStatus                  *services.DomainDNSStatus `json:"dns_status,omitempty"`
 }
 
 type CustomDomainHandler struct {
-	customDomainService    *services.CustomDomainService
-	sesVerificationService *services.SESVerificationService
-	dnsValidationService   *services.DNSValidationService
+	customDomainService         *services.CustomDomainService
+	domainVerificationService   *services.DomainVerificationService
+	sesVerificationService      *services.SESVerificationService
+	resendVerificationService   *services.ResendVerificationService
+	dnsValidationService        *services.DNSValidationService
+	defaultVerificationProvider string
 }
 
-func NewCustomDomainHandler(customDomainService *services.CustomDomainService, sesVerificationService *services.SESVerificationService, dnsValidationService *services.DNSValidationService) *CustomDomainHandler {
+func NewCustomDomainHandler(
+	customDomainService *services.CustomDomainService,
+	domainVerificationService *services.DomainVerificationService,
+	sesVerificationService *services.SESVerificationService,
+	resendVerificationService *services.ResendVerificationService,
+	dnsValidationService *services.DNSValidationService,
+	defaultVerificationProvider string,
+) *CustomDomainHandler {
+	if defaultVerificationProvider == "" {
+		defaultVerificationProvider = "ses" // Default to SES for backward compatibility
+	}
+
 	return &CustomDomainHandler{
-		customDomainService:    customDomainService,
-		sesVerificationService: sesVerificationService,
-		dnsValidationService:   dnsValidationService,
+		customDomainService:         customDomainService,
+		domainVerificationService:   domainVerificationService,
+		sesVerificationService:      sesVerificationService,
+		resendVerificationService:   resendVerificationService,
+		dnsValidationService:        dnsValidationService,
+		defaultVerificationProvider: defaultVerificationProvider,
 	}
 }
 
@@ -69,8 +90,20 @@ func (h *CustomDomainHandler) CreateCustomDomain(c *gin.Context) {
 		return
 	}
 
+	// Determine verification provider
+	verificationProvider := req.VerificationProvider
+	if verificationProvider == "" {
+		verificationProvider = h.defaultVerificationProvider
+	}
+
+	// Validate verification provider
+	if verificationProvider != "ses" && verificationProvider != "resend" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid verification provider. Must be 'ses' or 'resend'"})
+		return
+	}
+
 	// Create custom domain
-	customDomain, err := h.customDomainService.CreateCustomDomain(accountID.(uuid.UUID), domain)
+	customDomain, err := h.customDomainService.CreateCustomDomain(accountID.(uuid.UUID), domain, verificationProvider)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
 			c.JSON(http.StatusConflict, gin.H{"error": "Domain already exists"})
@@ -80,9 +113,31 @@ func (h *CustomDomainHandler) CreateCustomDomain(c *gin.Context) {
 		return
 	}
 
-	// Initiate SES verification
-	if h.sesVerificationService != nil {
-		err = h.sesVerificationService.InitiateDomainVerification(customDomain)
+	// Get the appropriate verification service
+	var verificationService services.DomainVerificationProvider
+	switch verificationProvider {
+	case "resend":
+		if h.resendVerificationService != nil {
+			verificationService = h.resendVerificationService
+		} else {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Resend verification service not available"})
+			return
+		}
+	case "ses":
+		if h.sesVerificationService != nil {
+			verificationService = h.sesVerificationService
+		} else {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "SES verification service not available"})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid verification provider"})
+		return
+	}
+
+	// Initiate verification using the selected provider
+	if verificationService != nil {
+		err = verificationService.InitiateDomainVerification(customDomain)
 		if err != nil {
 			// Log error but don't fail the request
 			// The domain is created, verification can be retried later
@@ -178,10 +233,18 @@ func (h *CustomDomainHandler) DeleteCustomDomain(c *gin.Context) {
 		return
 	}
 
-	// Delete from SES if verification service is available
-	if h.sesVerificationService != nil {
-		// Best effort - don't fail if SES deletion fails
-		h.sesVerificationService.DeleteDomainIdentity(domain.Domain)
+	// Delete from verification provider if verification service is available
+	var verificationService services.DomainVerificationProvider
+	switch domain.VerificationProvider {
+	case "resend":
+		verificationService = h.resendVerificationService
+	case "ses":
+		verificationService = h.sesVerificationService
+	}
+
+	if verificationService != nil {
+		// Best effort - don't fail if provider deletion fails
+		verificationService.DeleteDomainIdentity(domain.Domain)
 	}
 
 	// Delete from database
@@ -221,13 +284,26 @@ func (h *CustomDomainHandler) VerifyCustomDomain(c *gin.Context) {
 		return
 	}
 
-	// Trigger verification
-	if h.sesVerificationService != nil {
-		err = h.sesVerificationService.InitiateDomainVerification(domain)
+	// Trigger verification using the appropriate provider
+	var verificationService services.DomainVerificationProvider
+	switch domain.VerificationProvider {
+	case "resend":
+		verificationService = h.resendVerificationService
+	case "ses":
+		verificationService = h.sesVerificationService
+	}
+
+	if verificationService != nil {
+		err = verificationService.InitiateDomainVerification(domain)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initiate verification: " + err.Error()})
 			return
 		}
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": fmt.Sprintf("Verification service for provider '%s' not available", domain.VerificationProvider),
+		})
+		return
 	}
 
 	// Return updated status
@@ -262,18 +338,33 @@ func (h *CustomDomainHandler) CheckVerificationStatus(c *gin.Context) {
 		return
 	}
 
-	// Check status with SES
-	if h.sesVerificationService != nil {
-		err = h.sesVerificationService.CheckVerificationStatus(domain)
+	// Check status using the appropriate provider
+	var verificationService services.DomainVerificationProvider
+	switch domain.VerificationProvider {
+	case "resend":
+		verificationService = h.resendVerificationService
+	case "ses":
+		verificationService = h.sesVerificationService
+	}
+
+	if verificationService != nil {
+		err = verificationService.CheckVerificationStatus(domain)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check verification status: " + err.Error()})
 			return
 		}
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": fmt.Sprintf("Verification service for provider '%s' not available", domain.VerificationProvider),
+		})
+		return
 	}
 
 	// Return status
 	response := gin.H{
 		"status":                       domain.Status,
+		"verification_provider":        domain.VerificationProvider,
+		"provider_verification_status": domain.ProviderVerificationStatus,
 		"ses_verification_status":      domain.SESVerificationStatus,
 		"ses_dkim_verification_status": domain.SESDKIMVerificationStatus,
 		"verified_at":                  domain.VerifiedAt,
@@ -329,15 +420,17 @@ func (h *CustomDomainHandler) ValidateDomainDNS(c *gin.Context) {
 // Helper function to convert domain to response
 func (h *CustomDomainHandler) toResponse(domain *models.CustomDomain) CustomDomainResponse {
 	response := CustomDomainResponse{
-		ID:                        domain.ID,
-		Domain:                    domain.Domain,
-		Status:                    string(domain.Status),
-		DNSRecords:                domain.DNSRecords,
-		SESVerificationStatus:     domain.SESVerificationStatus,
-		SESDKIMVerificationStatus: domain.SESDKIMVerificationStatus,
-		FailureReason:             domain.FailureReason,
-		CreatedAt:                 domain.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:                 domain.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:                         domain.ID,
+		Domain:                     domain.Domain,
+		Status:                     string(domain.Status),
+		VerificationProvider:       domain.VerificationProvider,
+		ProviderVerificationStatus: domain.ProviderVerificationStatus,
+		DNSRecords:                 domain.DNSRecords,
+		SESVerificationStatus:      domain.SESVerificationStatus,
+		SESDKIMVerificationStatus:  domain.SESDKIMVerificationStatus,
+		FailureReason:              domain.FailureReason,
+		CreatedAt:                  domain.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:                  domain.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 
 	if domain.VerificationAttemptedAt != nil {

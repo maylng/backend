@@ -27,12 +27,33 @@ func NewServer(cfg *config.Config, db *sql.DB, redisClient *redis.Client) *Serve
 	var emailService *email.Service
 
 	switch cfg.EmailProvider {
+	case "resend":
+		// Use Resend as primary provider
+		if cfg.ResendAPIKey != "" {
+			resendProvider := providers.NewResendProvider(cfg.ResendAPIKey)
+			var fallbackProvider email.Provider
+			if cfg.SendGridAPIKey != "" {
+				fallbackProvider = providers.NewSendGridProvider(cfg.SendGridAPIKey)
+			}
+			emailService = email.NewService(resendProvider, fallbackProvider)
+		} else {
+			// No Resend API key provided, fall back to other providers
+			if cfg.SendGridAPIKey != "" {
+				sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
+				emailService = email.NewService(sendGridProvider, nil)
+			} else {
+				emailService = email.NewService(nil, nil)
+			}
+		}
 	case "ses":
 		// Use SES as primary provider
 		sesProvider, err := providers.NewSESProvider(cfg.AWSRegion)
 		if err != nil {
-			// If SES fails to initialize, fall back to SendGrid if available
-			if cfg.SendGridAPIKey != "" {
+			// If SES fails to initialize, fall back to other providers
+			if cfg.ResendAPIKey != "" {
+				resendProvider := providers.NewResendProvider(cfg.ResendAPIKey)
+				emailService = email.NewService(resendProvider, nil)
+			} else if cfg.SendGridAPIKey != "" {
 				sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
 				emailService = email.NewService(sendGridProvider, nil)
 			} else {
@@ -40,7 +61,9 @@ func NewServer(cfg *config.Config, db *sql.DB, redisClient *redis.Client) *Serve
 			}
 		} else {
 			var fallbackProvider email.Provider
-			if cfg.SendGridAPIKey != "" {
+			if cfg.ResendAPIKey != "" {
+				fallbackProvider = providers.NewResendProvider(cfg.ResendAPIKey)
+			} else if cfg.SendGridAPIKey != "" {
 				fallbackProvider = providers.NewSendGridProvider(cfg.SendGridAPIKey)
 			}
 			emailService = email.NewService(sesProvider, fallbackProvider)
@@ -49,14 +72,30 @@ func NewServer(cfg *config.Config, db *sql.DB, redisClient *redis.Client) *Serve
 		// Use SendGrid as primary provider
 		if cfg.SendGridAPIKey != "" {
 			sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
-			emailService = email.NewService(sendGridProvider, nil)
+			var fallbackProvider email.Provider
+			if cfg.ResendAPIKey != "" {
+				fallbackProvider = providers.NewResendProvider(cfg.ResendAPIKey)
+			}
+			emailService = email.NewService(sendGridProvider, fallbackProvider)
 		} else {
-			// No SendGrid API key provided
-			emailService = email.NewService(nil, nil)
+			// No SendGrid API key provided, fall back to other providers
+			if cfg.ResendAPIKey != "" {
+				resendProvider := providers.NewResendProvider(cfg.ResendAPIKey)
+				emailService = email.NewService(resendProvider, nil)
+			} else {
+				emailService = email.NewService(nil, nil)
+			}
 		}
 	default:
-		// Backward compatibility - check for SendGrid first
-		if cfg.SendGridAPIKey != "" {
+		// Default case - prefer Resend, then SendGrid for backward compatibility
+		if cfg.ResendAPIKey != "" {
+			resendProvider := providers.NewResendProvider(cfg.ResendAPIKey)
+			var fallbackProvider email.Provider
+			if cfg.SendGridAPIKey != "" {
+				fallbackProvider = providers.NewSendGridProvider(cfg.SendGridAPIKey)
+			}
+			emailService = email.NewService(resendProvider, fallbackProvider)
+		} else if cfg.SendGridAPIKey != "" {
 			sendGridProvider := providers.NewSendGridProvider(cfg.SendGridAPIKey)
 			emailService = email.NewService(sendGridProvider, nil)
 		} else {

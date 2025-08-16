@@ -20,16 +20,32 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	customDomainService := services.NewCustomDomainService(db)
 	tpsService := services.NewTPSService(db, cfg.TPSEncryptionKey)
 
-	// Initialize SES verification service (only if using SES)
+	// Initialize SES verification service
 	var sesVerificationService *services.SESVerificationService
-	if cfg.EmailProvider == "ses" && cfg.AWSRegion != "" {
+	if cfg.AWSRegion != "" {
 		var err error
 		sesVerificationService, err = services.NewSESVerificationService(cfg.AWSRegion, customDomainService)
 		if err != nil {
 			// Log error but don't fail startup
-			// Custom domains will work without SES verification
 			sesVerificationService = nil
 		}
+	}
+
+	// Initialize Resend verification service
+	var resendVerificationService *services.ResendVerificationService
+	if cfg.ResendAPIKey != "" {
+		var err error
+		resendVerificationService, err = services.NewResendVerificationService(cfg.ResendAPIKey, cfg.AWSRegion, customDomainService)
+		if err != nil {
+			// Log error but don't fail startup
+			resendVerificationService = nil
+		}
+	}
+
+	// Determine default verification provider based on email provider configuration
+	defaultVerificationProvider := "ses"
+	if cfg.EmailProvider == "resend" && resendVerificationService != nil {
+		defaultVerificationProvider = "resend"
 	}
 
 	// Initialize DNS validation service
@@ -40,7 +56,14 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	accountHandler := handlers.NewAccountHandler(accountService)
 	emailAddressHandler := handlers.NewEmailAddressHandler(emailAddressService)
 	emailHandler := handlers.NewEmailHandler(emailSvc)
-	customDomainHandler := handlers.NewCustomDomainHandler(customDomainService, sesVerificationService, dnsValidationService)
+	customDomainHandler := handlers.NewCustomDomainHandler(
+		customDomainService,
+		nil, // domain verification service - we'll implement later
+		sesVerificationService,
+		resendVerificationService,
+		dnsValidationService,
+		defaultVerificationProvider,
+	)
 	tpsHandler := handlers.NewTPSHandler(tpsService, emailAddressService, accountService)
 
 	// Middleware
@@ -72,8 +95,8 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 		protected.DELETE("/email-addresses/:id", emailAddressHandler.DeleteEmailAddress)
 
 		// TPS (3rd Party Software) management
-		protected.POST("/email-addresses/:email_id/tps", tpsHandler.CreateTPS)
-		protected.GET("/email-addresses/:email_id/tps", tpsHandler.ListTPSByEmail)
+		protected.POST("/tps", tpsHandler.CreateTPS)
+		protected.GET("/tps", tpsHandler.ListTPSByEmail)
 		protected.GET("/tps/:tps_id", tpsHandler.GetTPS)
 		protected.PATCH("/tps/:tps_id", tpsHandler.UpdateTPS)
 		protected.DELETE("/tps/:tps_id", tpsHandler.DeleteTPS)
