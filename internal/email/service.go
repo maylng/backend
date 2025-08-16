@@ -1,8 +1,8 @@
 package email
 
+// TODO: Add mailgun as a provider
 import (
 	"fmt"
-
 	"github.com/maylng/backend/internal/models"
 )
 
