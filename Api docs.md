@@ -72,6 +72,25 @@ GET /health
 }
 ```
 
+#### Versioned Health Check
+
+The service also exposes a versioned health endpoint under the API prefix.
+
+```http
+GET /v1/health
+```
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "service": "maylng-api",
+  "version": "1.0.0",
+  "api_version": "v1"
+}
+```
+
 ---
 
 ### Account Management
@@ -352,6 +371,67 @@ Authorization: Bearer your_api_key
 ```
 
 **Response:** `204 No Content`
+
+---
+
+### TPS (3rd Party Software) Management
+
+These endpoints manage third-party software (TPS) integrations tied to an email address. All TPS endpoints require authentication.
+
+#### Create TPS for an Email Address
+
+```http
+POST /v1/email-addresses/:email_id/tps
+```
+
+**Path Parameters:**
+
+- `email_id` (UUID): ID of the email address to attach the TPS entry to.
+
+**Request Body (example):**
+
+```json
+{
+  "name": "example-integration",
+  "config": { "key": "value" }
+}
+```
+
+**Response:** `201 Created` with created TPS object.
+
+#### List TPS by Email Address
+
+```http
+GET /v1/email-addresses/:email_id/tps
+```
+
+**Response:** `200 OK` with an array of TPS entries attached to the email address.
+
+#### Get TPS by ID
+
+```http
+GET /v1/tps/:tps_id
+```
+
+**Response:** `200 OK` with TPS object; `404` if not found.
+
+#### Update TPS
+
+```http
+PATCH /v1/tps/:tps_id
+```
+
+**Request Body:** JSON with updatable TPS config fields.
+
+**Response:** `200 OK` with updated TPS object.
+
+#### Delete TPS
+
+```http
+DELETE /v1/tps/:tps_id
+```
+
+**Response:** `204 No Content` on success.
 
 ---
 
@@ -885,12 +965,7 @@ echo "Email Address: $EMAIL_ADDRESS"
 SEND_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/emails/send \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"from_email_id\": \"$EMAIL_ID\",
-    \"to_recipients\": [\"test@example.com\"],
-    \"subject\": \"Hello from Maylng!\",
-    \"html_content\": \"<h1>Welcome!</h1><p>This is a test email from the Maylng API.</p>\"
-  }")
+  -d '{"from_email_id": "$EMAIL_ID", "to_recipients": ["test@example.com"], "subject": "Hello from Maylng!","html_content": "<h1>Welcome!</h1><p>This is a test email from the Maylng API.</p>"}')
 
 EMAIL_SEND_ID=$(echo $SEND_RESPONSE | jq -r '.id')
 echo "Email sent with ID: $EMAIL_SEND_ID"
@@ -1209,4 +1284,4 @@ Add custom email headers for tracking or client-specific requirements:
 
 ---
 
-## *Last updated: August 6, 2025*
+## *Last updated: August 16, 2025*
