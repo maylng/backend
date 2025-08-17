@@ -205,6 +205,77 @@ func (h *CustomDomainHandler) GetCustomDomain(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// UpdateCustomDomain updates domain settings (tracking, TLS, etc.)
+func (h *CustomDomainHandler) UpdateCustomDomain(c *gin.Context) {
+	accountID, exists := c.Get("account_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account ID not found"})
+		return
+	}
+
+	domainID := c.Param("id")
+	id, err := uuid.Parse(domainID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid domain ID"})
+		return
+	}
+
+	// Get domain to verify ownership
+	domain, err := h.customDomainService.GetCustomDomainByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Custom domain not found"})
+		return
+	}
+
+	// Verify ownership
+	if domain.AccountID != accountID.(uuid.UUID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	// Parse update request
+	var updateSettings map[string]interface{}
+	if err := c.ShouldBindJSON(&updateSettings); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Update domain settings using the appropriate provider
+	switch domain.VerificationProvider {
+	case "resend":
+		if h.resendVerificationService != nil {
+			if err := h.resendVerificationService.UpdateDomainSettings(domain, updateSettings); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update domain settings: " + err.Error()})
+				return
+			}
+		} else {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Resend verification service not available"})
+			return
+		}
+	case "ses":
+		// SES doesn't support the same update operations, but we can still store metadata
+		if domain.Metadata == nil {
+			domain.Metadata = make(map[string]interface{})
+		}
+		for key, value := range updateSettings {
+			domain.Metadata["ses_"+key] = value
+		}
+		if err := h.customDomainService.UpdateCustomDomain(domain); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update domain metadata"})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported verification provider for domain updates"})
+		return
+	}
+
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"object": "domain",
+		"id":     domain.ID.String(),
+	})
+}
+
 // DeleteCustomDomain deletes a custom domain
 func (h *CustomDomainHandler) DeleteCustomDomain(c *gin.Context) {
 	accountID, exists := c.Get("account_id")
@@ -234,17 +305,17 @@ func (h *CustomDomainHandler) DeleteCustomDomain(c *gin.Context) {
 	}
 
 	// Delete from verification provider if verification service is available
-	var verificationService services.DomainVerificationProvider
 	switch domain.VerificationProvider {
 	case "resend":
-		verificationService = h.resendVerificationService
+		if h.resendVerificationService != nil {
+			// Use the improved deletion method that leverages stored provider domain ID
+			h.resendVerificationService.DeleteDomainByID(domain)
+		}
 	case "ses":
-		verificationService = h.sesVerificationService
-	}
-
-	if verificationService != nil {
-		// Best effort - don't fail if provider deletion fails
-		verificationService.DeleteDomainIdentity(domain.Domain)
+		if h.sesVerificationService != nil {
+			// Best effort - don't fail if provider deletion fails
+			h.sesVerificationService.DeleteDomainIdentity(domain.Domain)
+		}
 	}
 
 	// Delete from database

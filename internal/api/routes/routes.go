@@ -111,6 +111,7 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 		protected.POST("/custom-domains", customDomainHandler.CreateCustomDomain)
 		protected.GET("/custom-domains", customDomainHandler.GetCustomDomains)
 		protected.GET("/custom-domains/:id", customDomainHandler.GetCustomDomain)
+		protected.PATCH("/custom-domains/:id", customDomainHandler.UpdateCustomDomain)
 		protected.DELETE("/custom-domains/:id", customDomainHandler.DeleteCustomDomain)
 		protected.POST("/custom-domains/:id/verify", customDomainHandler.VerifyCustomDomain)
 		protected.GET("/custom-domains/:id/status", customDomainHandler.CheckVerificationStatus)
@@ -124,6 +125,9 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 			admin.GET("/users", adminHandler.ListUsers)
 			admin.GET("/users/:id", adminHandler.GetUser)
 			admin.DELETE("/users/:id", adminHandler.DeleteUser)
+			admin.POST("/users/:id/revoke-key", adminHandler.RevokeKey)
+			admin.GET("/users/:id/email-addresses", adminHandler.ListEmailAddresses)
+			admin.GET("/stats", adminHandler.Stats)
 		}
 	}
 

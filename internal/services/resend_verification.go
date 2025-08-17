@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/maylng/backend/internal/models"
@@ -50,7 +49,8 @@ func (s *ResendVerificationService) InitiateDomainVerification(customDomain *mod
 		return fmt.Errorf("failed to create domain in Resend: %w", err)
 	}
 
-	// 2. Store Resend domain ID in metadata
+	// 2. Store Resend domain ID in both provider_domain_id field and metadata
+	customDomain.ProviderDomainID = &createResp.Id
 	if customDomain.Metadata == nil {
 		customDomain.Metadata = make(map[string]interface{})
 	}
@@ -80,9 +80,11 @@ func (s *ResendVerificationService) InitiateDomainVerification(customDomain *mod
 			TTL:   3600, // Default TTL
 		}
 
-		// Handle MX record priority if it exists
+		// Handle MX record priority - Resend API may return it as string
 		if record.Priority != "" {
-			if priority, err := strconv.Atoi(string(record.Priority)); err == nil {
+			// Priority is a string in the SDK, try to parse it
+			var priority int
+			if _, err := fmt.Sscanf(string(record.Priority), "%d", &priority); err == nil {
 				dnsRecord.Priority = priority
 			}
 		}
@@ -94,8 +96,9 @@ func (s *ResendVerificationService) InitiateDomainVerification(customDomain *mod
 	customDomain.DNSRecords = dnsRecords
 	customDomain.Status = models.CustomDomainStatusPending
 
-	// Store Resend-specific verification status
+	// Store Resend-specific verification status in both provider field and metadata
 	resendStatus := string(createResp.Status)
+	customDomain.ProviderVerificationStatus = &resendStatus
 	if customDomain.Metadata == nil {
 		customDomain.Metadata = make(map[string]interface{})
 	}
@@ -115,10 +118,18 @@ func (s *ResendVerificationService) CheckVerificationStatus(customDomain *models
 		return fmt.Errorf("resend client not configured")
 	}
 
-	// Get Resend domain ID from metadata
-	resendDomainID, ok := customDomain.Metadata["resend_domain_id"].(string)
-	if !ok {
-		return fmt.Errorf("resend domain ID not found in metadata")
+	// Get Resend domain ID from provider_domain_id field or fallback to metadata
+	var resendDomainID string
+	if customDomain.ProviderDomainID != nil {
+		resendDomainID = *customDomain.ProviderDomainID
+	} else if customDomain.Metadata != nil {
+		if id, ok := customDomain.Metadata["resend_domain_id"].(string); ok {
+			resendDomainID = id
+		}
+	}
+
+	if resendDomainID == "" {
+		return fmt.Errorf("resend domain ID not found in provider_domain_id or metadata")
 	}
 
 	// Get domain details from Resend
@@ -130,11 +141,13 @@ func (s *ResendVerificationService) CheckVerificationStatus(customDomain *models
 	// Update verification status
 	previousStatus := customDomain.Status
 
-	// Store Resend-specific verification status in metadata
+	// Store Resend-specific verification status in both provider field and metadata
+	resendStatus := string(domain.Status)
+	customDomain.ProviderVerificationStatus = &resendStatus
 	if customDomain.Metadata == nil {
 		customDomain.Metadata = make(map[string]interface{})
 	}
-	customDomain.Metadata["resend_verification_status"] = string(domain.Status)
+	customDomain.Metadata["resend_verification_status"] = resendStatus
 
 	// Map Resend status to our internal status
 	switch string(domain.Status) {
@@ -163,7 +176,7 @@ func (s *ResendVerificationService) CheckVerificationStatus(customDomain *models
 	return s.customDomainService.UpdateCustomDomain(customDomain)
 }
 
-// DeleteDomainIdentity removes the domain from Resend
+// DeleteDomainIdentity removes the domain from Resend using domain ID
 func (s *ResendVerificationService) DeleteDomainIdentity(domain string) error {
 	if s.client == nil {
 		return fmt.Errorf("resend client not configured")
@@ -197,6 +210,97 @@ func (s *ResendVerificationService) DeleteDomainIdentity(domain string) error {
 	return nil
 }
 
+// DeleteDomainByID removes the domain from Resend using the stored provider domain ID
+func (s *ResendVerificationService) DeleteDomainByID(customDomain *models.CustomDomain) error {
+	if s.client == nil {
+		return fmt.Errorf("resend client not configured")
+	}
+
+	// Get Resend domain ID from provider_domain_id field or fallback to metadata
+	var resendDomainID string
+	if customDomain.ProviderDomainID != nil {
+		resendDomainID = *customDomain.ProviderDomainID
+	} else if customDomain.Metadata != nil {
+		if id, ok := customDomain.Metadata["resend_domain_id"].(string); ok {
+			resendDomainID = id
+		}
+	}
+
+	if resendDomainID == "" {
+		// No domain ID found, try fallback to domain name
+		return s.DeleteDomainIdentity(customDomain.Domain)
+	}
+
+	// Delete the domain using the stored ID
+	_, err := s.client.Domains.Remove(resendDomainID)
+	if err != nil {
+		return fmt.Errorf("failed to delete domain from Resend: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateDomainSettings updates domain configuration in Resend (tracking, TLS, etc.)
+func (s *ResendVerificationService) UpdateDomainSettings(customDomain *models.CustomDomain, settings map[string]interface{}) error {
+	if s.client == nil {
+		return fmt.Errorf("resend client not configured")
+	}
+
+	// Get Resend domain ID from provider_domain_id field or fallback to metadata
+	var resendDomainID string
+	if customDomain.ProviderDomainID != nil {
+		resendDomainID = *customDomain.ProviderDomainID
+	} else if customDomain.Metadata != nil {
+		if id, ok := customDomain.Metadata["resend_domain_id"].(string); ok {
+			resendDomainID = id
+		}
+	}
+
+	if resendDomainID == "" {
+		return fmt.Errorf("resend domain ID not found")
+	}
+
+	// Build update request
+	updateParams := &resend.UpdateDomainRequest{}
+
+	// Handle click tracking
+	if clickTracking, ok := settings["click_tracking"].(bool); ok {
+		updateParams.ClickTracking = clickTracking
+	}
+
+	// Handle open tracking
+	if openTracking, ok := settings["open_tracking"].(bool); ok {
+		updateParams.OpenTracking = openTracking
+	}
+
+	// Handle TLS setting
+	if tlsStr, ok := settings["tls"].(string); ok {
+		switch tlsStr {
+		case "enforced":
+			updateParams.Tls = resend.Enforced
+		case "opportunistic":
+			updateParams.Tls = resend.Opportunistic
+		}
+	}
+
+	// Update domain in Resend
+	_, err := s.client.Domains.Update(resendDomainID, updateParams)
+	if err != nil {
+		return fmt.Errorf("failed to update domain in Resend: %w", err)
+	}
+
+	// Store updated settings in metadata
+	if customDomain.Metadata == nil {
+		customDomain.Metadata = make(map[string]interface{})
+	}
+	for key, value := range settings {
+		customDomain.Metadata["resend_"+key] = value
+	}
+
+	// Save to database
+	return s.customDomainService.UpdateCustomDomain(customDomain)
+}
+
 // RetryVerification retries the verification process for a domain
 func (s *ResendVerificationService) RetryVerification(customDomain *models.CustomDomain) error {
 	// Reset some fields
@@ -204,9 +308,17 @@ func (s *ResendVerificationService) RetryVerification(customDomain *models.Custo
 	customDomain.FailureReason = nil
 	customDomain.VerifiedAt = nil
 
-	// Get Resend domain ID from metadata
-	resendDomainID, ok := customDomain.Metadata["resend_domain_id"].(string)
-	if !ok {
+	// Get Resend domain ID from provider_domain_id field or fallback to metadata
+	var resendDomainID string
+	if customDomain.ProviderDomainID != nil {
+		resendDomainID = *customDomain.ProviderDomainID
+	} else if customDomain.Metadata != nil {
+		if id, ok := customDomain.Metadata["resend_domain_id"].(string); ok {
+			resendDomainID = id
+		}
+	}
+
+	if resendDomainID == "" {
 		// If no domain ID exists, re-initiate the whole process
 		return s.InitiateDomainVerification(customDomain)
 	}
