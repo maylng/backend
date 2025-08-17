@@ -217,6 +217,89 @@ func (s *AccountService) DeleteAccount(accountID uuid.UUID) error {
 	return nil
 }
 
+// ListAccounts returns a list of accounts for admin purposes
+// ListAccounts returns a paginated list of accounts for admin purposes
+func (s *AccountService) ListAccounts(limit, offset int) ([]*models.AccountResponse, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	query := `
+		SELECT id, plan, email_limit_per_month, email_address_limit, is_admin, created_at, updated_at
+		FROM accounts
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := s.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []*models.AccountResponse
+	for rows.Next() {
+		var acc models.Account
+		if err := rows.Scan(&acc.ID, &acc.Plan, &acc.EmailLimitPerMonth, &acc.EmailAddressLimit, &acc.IsAdmin, &acc.CreatedAt, &acc.UpdatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, &models.AccountResponse{
+			ID:                 acc.ID,
+			Plan:               acc.Plan,
+			EmailLimitPerMonth: acc.EmailLimitPerMonth,
+			EmailAddressLimit:  acc.EmailAddressLimit,
+			IsAdmin:            acc.IsAdmin,
+			CreatedAt:          acc.CreatedAt,
+			UpdatedAt:          acc.UpdatedAt,
+		})
+	}
+
+	return results, nil
+}
+
+// RevokeAPIKey clears the stored api_key_hash for an account (forces generate new key)
+func (s *AccountService) RevokeAPIKey(accountID uuid.UUID) error {
+	query := `UPDATE accounts SET api_key_hash = NULL, updated_at = NOW() WHERE id = $1`
+	res, err := s.db.Exec(query, accountID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("account not found")
+	}
+	return nil
+}
+
+// GetGlobalStats returns aggregated statistics across the whole system for admin dashboards
+func (s *AccountService) GetGlobalStats() (*models.GlobalStats, error) {
+	stats := &models.GlobalStats{}
+
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM accounts`).Scan(&stats.TotalAccounts); err != nil {
+		return nil, fmt.Errorf("failed to count accounts: %w", err)
+	}
+
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM email_addresses`).Scan(&stats.TotalEmailAddresses); err != nil {
+		return nil, fmt.Errorf("failed to count email addresses: %w", err)
+	}
+
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM custom_domains`).Scan(&stats.TotalCustomDomains); err != nil {
+		return nil, fmt.Errorf("failed to count custom domains: %w", err)
+	}
+
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM custom_domains WHERE provider_verification_status = 'verified'`).Scan(&stats.TotalVerifiedDomains); err != nil {
+		return nil, fmt.Errorf("failed to count verified domains: %w", err)
+	}
+
+	return stats, nil
+}
+
 func (s *AccountService) GenerateNewAPIKey(accountID uuid.UUID) (string, error) {
 	// Generate a new API key
 	newAPIKey, err := auth.GenerateAPIKey()

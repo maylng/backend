@@ -263,6 +263,53 @@ func (s *EmailAddressService) DeleteEmailAddress(accountID, emailAddressID uuid.
 	return nil
 }
 
+// ListByAccount returns all email addresses for a given account (admin use)
+func (s *EmailAddressService) ListByAccount(accountID uuid.UUID, limit, offset int) ([]*models.EmailAddressResponse, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	query := `
+		SELECT id, email, type, access_type, prefix, domain, status, expires_at, metadata, created_at, updated_at
+		FROM email_addresses
+		WHERE account_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := s.db.Query(query, accountID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list email addresses: %w", err)
+	}
+	defer rows.Close()
+
+	var emailAddresses []*models.EmailAddressResponse
+	for rows.Next() {
+		var addr models.EmailAddress
+		if err := rows.Scan(&addr.ID, &addr.Email, &addr.Type, &addr.AccessType, &addr.Prefix, &addr.Domain, &addr.Status, &addr.ExpiresAt, &addr.Metadata, &addr.CreatedAt, &addr.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan email address: %w", err)
+		}
+		emailAddresses = append(emailAddresses, &models.EmailAddressResponse{
+			ID:         addr.ID,
+			Email:      addr.Email,
+			Type:       addr.Type,
+			AccessType: addr.AccessType,
+			Prefix:     addr.Prefix,
+			Domain:     addr.Domain,
+			Status:     addr.Status,
+			ExpiresAt:  addr.ExpiresAt,
+			Metadata:   addr.Metadata,
+			CreatedAt:  addr.CreatedAt,
+			UpdatedAt:  addr.UpdatedAt,
+		})
+	}
+
+	return emailAddresses, nil
+}
+
 func (s *EmailAddressService) countEmailAddresses(accountID uuid.UUID) (int, error) {
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM email_addresses WHERE account_id = $1 AND status != 'disabled'", accountID).Scan(&count)

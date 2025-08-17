@@ -12,6 +12,7 @@ type Account struct {
 	Plan               string    `json:"plan" db:"plan"`
 	EmailLimitPerMonth int       `json:"email_limit_per_month" db:"email_limit_per_month"`
 	EmailAddressLimit  int       `json:"email_address_limit" db:"email_address_limit"`
+	IsAdmin            bool      `json:"is_admin" db:"is_admin"`
 	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -25,6 +26,7 @@ type AccountResponse struct {
 	Plan                 string    `json:"plan"`
 	EmailLimitPerMonth   int       `json:"email_limit_per_month"`
 	EmailAddressLimit    int       `json:"email_address_limit"`
+	IsAdmin              bool      `json:"is_admin,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at"`
 	APIKey               string    `json:"api_key,omitempty"` // Only returned on creation
@@ -36,4 +38,12 @@ type AccountResponse struct {
 
 type UpdateAccountRequest struct {
 	Plan *string `json:"plan" validate:"omitempty,oneof=free pro enterprise"`
+}
+
+// GlobalStats contains aggregated statistics for admin dashboards
+type GlobalStats struct {
+	TotalAccounts        int64 `json:"total_accounts"`
+	TotalEmailAddresses  int64 `json:"total_email_addresses"`
+	TotalCustomDomains   int64 `json:"total_custom_domains"`
+	TotalVerifiedDomains int64 `json:"total_verified_domains"`
 }

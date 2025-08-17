@@ -115,6 +115,16 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 		protected.POST("/custom-domains/:id/verify", customDomainHandler.VerifyCustomDomain)
 		protected.GET("/custom-domains/:id/status", customDomainHandler.CheckVerificationStatus)
 		protected.GET("/custom-domains/:id/dns", customDomainHandler.ValidateDomainDNS)
+
+		// Admin-only routes
+		adminHandler := handlers.NewAdminHandler(accountService, emailAddressService)
+		admin := protected.Group("/admin")
+		admin.Use(middleware.AdminMiddlewareDB(db))
+		{
+			admin.GET("/users", adminHandler.ListUsers)
+			admin.GET("/users/:id", adminHandler.GetUser)
+			admin.DELETE("/users/:id", adminHandler.DeleteUser)
+		}
 	}
 
 	// TODO: Webhook routes for email providers
