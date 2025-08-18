@@ -32,7 +32,7 @@ func (s *AccountService) CreateAccount(req *models.CreateAccountRequest) (*model
 	hashedKey := auth.HashAPIKey(apiKey, s.salt)
 
 	// Set default plan if not provided
-	plan := "free"
+	plan := "starter"
 	if req.Plan != "" {
 		plan = req.Plan
 	}
@@ -73,14 +73,14 @@ func (s *AccountService) CreateAccount(req *models.CreateAccountRequest) (*model
 
 func getPlanLimits(plan string) (emailLimitPerMonth int, emailAddressLimit int, err error) {
 	switch plan {
-	case "free":
-		emailLimitPerMonth = 1000
+	case "starter":
+		emailLimitPerMonth = 5000
 		emailAddressLimit = 5
 	case "pro":
 		emailLimitPerMonth = 50000
 		emailAddressLimit = 50
 	case "enterprise":
-		emailLimitPerMonth = 1000000
+		emailLimitPerMonth = 175000
 		emailAddressLimit = 500
 	default:
 		return 0, 0, fmt.Errorf("invalid plan: %s", plan)

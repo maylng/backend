@@ -26,14 +26,14 @@ func NewTPSService(db *sql.DB, encryptionKey string) *TPSService {
 // GetTPSLimitByPlan returns the 3rd Party Software limit per agent email address for a given plan
 func GetTPSLimitByPlan(plan string) int {
 	switch plan {
-		case "free":
-			return 1
-		case "pro":
-			return 3
-		case "enterprise":
-			return 20
-		default:
-			return 1
+	case "starter":
+		return 1
+	case "pro":
+		return 3
+	case "enterprise":
+		return 20
+	default:
+		return 1
 	}
 }
 

@@ -124,7 +124,7 @@ curl -H "Authorization: Bearer your_api_key" http://localhost:8080/v1/account
 ```bash
 curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
-  -d '{"plan": "free"}'
+  -d '{"plan": "starter"}'
 ```
 
 Response:
@@ -132,8 +132,8 @@ Response:
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
-  "plan": "free",
-  "email_limit_per_month": 1000,
+  "plan": "starter",
+  "email_limit_per_month": 5000,
   "email_address_limit": 5,
   "api_key": "maylng_1234567890abcdef...",
   "created_at": "2025-07-04T10:00:00Z"
@@ -262,17 +262,17 @@ Logs are structured and include:
 
 ## 📈 Rate Limits
 
-### Free Plan
+### Starter Plan
 
-- 100 emails/hour
-- 1,000 emails/day
-- 1,000 emails/month
+- 250 emails/hour
+- 2,500 emails/day
+- 5,000 emails/month
 - 5 email addresses
 
 ### Pro Plan
 
-- 1,000 emails/hour
-- 10,000 emails/day
+- 2,500 emails/hour
+- 25,000 emails/day
 - 50,000 emails/month
 - 50 email addresses
 
@@ -280,7 +280,7 @@ Logs are structured and include:
 
 - 10,000 emails/hour
 - 100,000 emails/day
-- 1,000,000 emails/month
+- 175,000 emails/month
 - 500 email addresses
 
 ## 🚀 Production Deployment

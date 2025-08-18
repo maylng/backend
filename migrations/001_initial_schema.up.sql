@@ -2,7 +2,7 @@
 CREATE TABLE accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     api_key_hash VARCHAR(255) UNIQUE NOT NULL,
-    plan VARCHAR(50) DEFAULT 'free',
+    plan VARCHAR(50) DEFAULT 'starter',
     email_limit_per_month INTEGER DEFAULT 1000,
     email_address_limit INTEGER DEFAULT 10,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

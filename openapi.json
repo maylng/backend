@@ -52,7 +52,7 @@
                   "plan": {
                     "type": "string",
                     "enum": [
-                      "free",
+                      "starter",
                       "pro",
                       "enterprise"
                     ]
@@ -776,7 +776,7 @@
           "plan": {
             "type": "string",
             "enum": [
-              "free",
+              "starter",
               "pro",
               "enterprise"
             ]

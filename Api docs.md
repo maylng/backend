@@ -33,7 +33,7 @@ Create an account to receive your API key:
 ```bash
 curl -X POST https://api.mayl.ng/v1/accounts \
   -H "Content-Type: application/json" \
-  -d '{"plan": "free"}'
+  -d '{"plan": "starter"}'
 ```
 
 ## 📊 Rate Limits
@@ -42,9 +42,9 @@ Rate limits vary by plan:
 
 | Plan | Emails/Hour | Emails/Day | Emails/Month | Email Addresses | API Calls/Hour |
 |------|-------------|------------|--------------|-----------------|----------------|
-| **Free** | 100 | 1,000 | 1,000 | 5 | 1,000 |
-| **Pro** | 1,000 | 10,000 | 50,000 | 50 | 10,000 |
-| **Enterprise** | 10,000 | 100,000 | 1,000,000 | 500 | 100,000 |
+| **Starter** | 250 | 2,500 | 5,000 | 5 | 1,000 |
+| **Pro** | 2,500 | 25,000 | 50,000 | 50 | 10,000 |
+| **Enterprise** | 10,000 | 100,000 | 175,000 | 500 | 50,000 |
 
 Rate limit information is included in response headers:
 
@@ -105,7 +105,7 @@ POST /v1/accounts
 
 ```json
 {
-  "plan": "free"  // Optional: "free", "pro", "enterprise"
+  "plan": "starter"  // Optional: "starter", "pro", "enterprise"
 }
 ```
 
@@ -114,8 +114,8 @@ POST /v1/accounts
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
-  "plan": "free",
-  "email_limit_per_month": 1000,
+  "plan": "starter",
+  "email_limit_per_month": 5000,
   "email_address_limit": 5,
   "email_addresses_count": 2,
   "api_key": "maylng_1234567890abcdef...",
@@ -141,8 +141,8 @@ Authorization: Bearer your_api_key
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
-  "plan": "free",
-  "email_limit_per_month": 1000,
+  "plan": "starter",
+  "email_limit_per_month": 5000,
   "email_address_limit": 5,
   "email_addresses_count": 2,
   "created_at": "2025-07-06T10:00:00Z",
@@ -167,7 +167,7 @@ Content-Type: application/json
 
 ```json
 {
-  "plan": "pro"  // Optional: "free", "pro", "enterprise"
+  "plan": "pro"  // Optional: "starter", "pro", "enterprise"
 }
 ```
 
@@ -938,7 +938,7 @@ Authorization: Bearer your_api_key
 # 1. Create account
 ACCOUNT_RESPONSE=$(curl -s -X POST https://api.mayl.ng:8080/v1/accounts \
   -H "Content-Type: application/json" \
-  -d '{"plan": "free"}')
+  -d '{"plan": "starter"}')
 
 API_KEY=$(echo $ACCOUNT_RESPONSE | jq -r '.api_key')
 echo "API Key: $API_KEY"

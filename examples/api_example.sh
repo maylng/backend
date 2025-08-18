@@ -13,6 +13,19 @@ echo ""
 echo "1. Creating account..."
 ACCOUNT_RESPONSE=$(curl -s -X POST "$API_BASE/accounts" \
   -H "Content-Type: application/json" \
+  -d '{"plan": "starter"}') -d '{"plan": "starter"})aylng API Example Usage Script
+# This script demonstrates how to use the Maylng API
+
+API_BASE="http://localhost:8080/v1"
+API_KEY=""
+
+echo "=== Maylng API Example Usage ==="
+echo ""
+
+# 1. Create an account
+echo "1. Creating account..."
+ACCOUNT_RESPONSE=$(curl -s -X POST "$API_BASE/accounts" \
+  -H "Content-Type: application/json" \
   -d '{"plan": "free"}')
 
 echo "Account created: $ACCOUNT_RESPONSE"

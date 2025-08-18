@@ -18,7 +18,7 @@ type Account struct {
 }
 
 type CreateAccountRequest struct {
-	Plan string `json:"plan" validate:"omitempty,oneof=free pro enterprise"`
+	Plan string `json:"plan" validate:"omitempty,oneof=starter pro enterprise"`
 }
 
 type AccountResponse struct {
@@ -37,7 +37,7 @@ type AccountResponse struct {
 }
 
 type UpdateAccountRequest struct {
-	Plan *string `json:"plan" validate:"omitempty,oneof=free pro enterprise"`
+	Plan *string `json:"plan" validate:"omitempty,oneof=starter pro enterprise"`
 }
 
 // GlobalStats contains aggregated statistics for admin dashboards
