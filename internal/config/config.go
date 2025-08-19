@@ -23,6 +23,8 @@ type Config struct {
 	TPSEncryptionKey       string // For encrypting TPS API keys and passwords
 	BROWSERBASE_API_KEY    string
 	BROWSERBASE_PROJECT_ID string
+	// PlatformCreationToken is a shared secret used to allow platform-origin requests to create accounts
+	PlatformCreationToken string
 }
 
 func Load() *Config {
@@ -44,6 +46,7 @@ func Load() *Config {
 		TPSEncryptionKey:       getEnv("TPS_ENCRYPTION_KEY", "default-key-change-in-production"),
 		BROWSERBASE_API_KEY:    getEnv("BROWSERBASE_API_KEY", "your_browserbase_api_key_here"),
 		BROWSERBASE_PROJECT_ID: getEnv("BROWSERBASE_PROJECT_ID", "your_browserbase_project_id_here"),
+		PlatformCreationToken:  getEnv("PLATFORM_CREATION_TOKEN", ""),
 	}
 }
 

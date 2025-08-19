@@ -73,11 +73,7 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 	router.GET("/health", healthHandler.Health)
 	router.GET("/v1/health", healthHandler.HealthV1)
 
-	// Public routes
-	public := router.Group("/v1")
-	{
-		public.POST("/accounts", accountHandler.CreateAccount)
-	}
+	// Public routes: open signups are disabled. Use admin or platform routes below.
 
 	// Protected routes
 	protected := router.Group("/v1")
@@ -117,17 +113,29 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, db *sql.DB, redisClient
 		protected.GET("/custom-domains/:id/status", customDomainHandler.CheckVerificationStatus)
 		protected.GET("/custom-domains/:id/dns", customDomainHandler.ValidateDomainDNS)
 
-		// Admin-only routes
+		// Admin-only routes (also allow admins to create accounts)
 		adminHandler := handlers.NewAdminHandler(accountService, emailAddressService)
 		admin := protected.Group("/admin")
 		admin.Use(middleware.AdminMiddlewareDB(db))
 		{
+			// Admins can create accounts via POST /v1/admin/users
+			admin.POST("/users", accountHandler.CreateAccount)
+
 			admin.GET("/users", adminHandler.ListUsers)
 			admin.GET("/users/:id", adminHandler.GetUser)
 			admin.DELETE("/users/:id", adminHandler.DeleteUser)
 			admin.POST("/users/:id/revoke-key", adminHandler.RevokeKey)
 			admin.GET("/users/:id/email-addresses", adminHandler.ListEmailAddresses)
 			admin.GET("/stats", adminHandler.Stats)
+		}
+
+		// Platform-origin account creation route (requires X-Platform-Token header)
+		if cfg.PlatformCreationToken != "" {
+			platform := router.Group("/v1/platform")
+			platform.Use(middleware.PlatformTokenMiddleware(cfg.PlatformCreationToken))
+			{
+				platform.POST("/accounts", accountHandler.CreateAccount)
+			}
 		}
 	}
 
